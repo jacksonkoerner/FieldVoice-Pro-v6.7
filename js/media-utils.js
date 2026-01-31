@@ -281,3 +281,15 @@ async function getHighAccuracyGPS(showWeakSignalWarning = true) {
         accuracy: Math.round(bestReading.accuracy)
     };
 }
+
+// ============ WINDOW EXPORTS ============
+// Expose to window for Vite module compatibility
+// These functions are called from page-specific scripts
+
+window.readFileAsDataURL = readFileAsDataURL;
+window.dataURLtoBlob = dataURLtoBlob;
+window.compressImage = compressImage;
+window.compressImageToThumbnail = compressImageToThumbnail;
+window.uploadLogoToStorage = uploadLogoToStorage;
+window.deleteLogoFromStorage = deleteLogoFromStorage;
+window.getHighAccuracyGPS = getHighAccuracyGPS;
