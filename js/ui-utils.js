@@ -186,3 +186,16 @@ function initAllAutoExpandTextareas(minHeight = 72, maxHeight = 400) {
         initAutoExpand(textarea, minHeight, maxHeight);
     });
 }
+
+// ============ WINDOW EXPORTS ============
+// Expose to window for Vite module compatibility
+// These functions are called from page-specific scripts
+
+window.escapeHtml = escapeHtml;
+window.generateId = generateId;
+window.showToast = showToast;
+window.formatDate = formatDate;
+window.formatTime = formatTime;
+window.autoExpand = autoExpand;
+window.initAutoExpand = initAutoExpand;
+window.initAllAutoExpandTextareas = initAllAutoExpandTextareas;

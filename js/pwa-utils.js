@@ -155,5 +155,13 @@ function showUpdateBanner() {
 }
 
 
-// Expose to window for inline scripts
+// ============ WINDOW EXPORTS ============
+// Expose to window for Vite module compatibility
+// These functions are called from inline scripts and page modules
+
 window.initPWA = initPWA;
+window.setupPWANavigation = setupPWANavigation;
+window.registerServiceWorker = registerServiceWorker;
+window.setupOfflineBanner = setupOfflineBanner;
+window.injectOfflineBanner = injectOfflineBanner;
+window.showUpdateBanner = showUpdateBanner;
