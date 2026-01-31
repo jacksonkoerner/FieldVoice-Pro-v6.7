@@ -710,7 +710,7 @@ user_profiles (id, full_name, title, company, email, phone, updated_at)
 
 | Service | URL | Purpose | Used By |
 |---------|-----|---------|---------|
-| Supabase | `https://ruzadotbgkjhgwkvotlz.supabase.co` | Database & Storage | All pages |
+| Supabase | `https://lpzjiporaieedxdsufcq.supabase.co` | Database & Storage | All pages |
 | n8n | `https://advidere.app.n8n.cloud/webhook/...` | AI Processing, Project Extraction | quick-interview, report, drafts, project-config |
 | Open-Meteo | `https://api.open-meteo.com/v1/forecast` | Weather Data | index, quick-interview |
 
