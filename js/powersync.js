@@ -18,13 +18,12 @@ const POWERSYNC_DEV_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzI
 
 const userProfiles = new Table(
     {
+        device_id: column.text,
         full_name: column.text,
+        title: column.text,
+        company: column.text,
         email: column.text,
         phone: column.text,
-        company: column.text,
-        role: column.text,
-        inspector_cert: column.text,
-        preferences: column.text, // JSON string
         created_at: column.text,
         updated_at: column.text
     },
