@@ -756,3 +756,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         initPWA({ onOnline: updateDraftsSection });
     }
 });
+
+// ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============
+window.openSettings = openSettings;
+window.openProjectConfig = openProjectConfig;
+window.beginDailyReport = beginDailyReport;
+window.showProjectPickerModal = showProjectPickerModal;
+window.closeProjectPickerModal = closeProjectPickerModal;
+window.selectProjectAndProceed = selectProjectAndProceed;
+window.goToProjectSetup = goToProjectSetup;
+window.dismissPermissionsBanner = dismissPermissionsBanner;
+window.dismissSubmittedBanner = dismissSubmittedBanner;
+window.syncWeather = syncWeather;

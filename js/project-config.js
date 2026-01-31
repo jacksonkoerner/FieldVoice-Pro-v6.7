@@ -1115,6 +1115,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupDropZone();
     setupLogoDropZone();
 
+    // Connect file input event listeners
+    const fileInput = document.getElementById('fileInput');
+    const logoInput = document.getElementById('logoInput');
+    if (fileInput) fileInput.addEventListener('change', handleFileSelect);
+    if (logoInput) logoInput.addEventListener('change', handleLogoSelect);
+
     // Check URL for project ID to edit, otherwise create new project
     const urlParams = new URLSearchParams(window.location.search);
     const projectId = urlParams.get('id');
@@ -1133,3 +1139,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Initialize PWA features (service worker, offline banner, etc.)
     initPWA();
 });
+
+// ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============
+window.saveProject = saveProject;
+window.cancelEdit = cancelEdit;
+window.deleteProject = deleteProject;
+window.saveContractor = saveContractor;
+window.showAddContractorForm = showAddContractorForm;
+window.hideAddContractorForm = hideAddContractorForm;
+window.editContractor = editContractor;
+window.deleteContractor = deleteContractor;
+window.showDeleteModal = showDeleteModal;
+window.closeDeleteModal = closeDeleteModal;
+window.confirmDelete = confirmDelete;
+window.extractProjectData = extractProjectData;
+window.toggleExtractionNotes = toggleExtractionNotes;
+window.handleLogoSelect = handleLogoSelect;
+window.handleFileSelect = handleFileSelect;
+window.removeLogo = removeLogo;
+window.removeFile = removeFile;
