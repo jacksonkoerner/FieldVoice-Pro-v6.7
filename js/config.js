@@ -6,3 +6,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // Initialize Supabase client (requires @supabase/supabase-js to be loaded first)
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============ POWERSYNC ============
+// PowerSync credentials and token are defined in js/powersync.js
+// The development token expires every ~12 hours and needs to be refreshed
+// Get a new token from: https://powersync.journeyapps.com/ → Your Instance → Connect
+//
+// To initialize PowerSync after page load:
+//   await initPowerSync();
+//
+// PowerSync URL: https://697d5b91d930100f50158b4f.powersync.journeyapps.com
+// See js/powersync.js for the full schema and helper functions
