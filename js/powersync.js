@@ -10,7 +10,7 @@ const POWERSYNC_URL = 'https://697d5b91d930100f50158b4f.powersync.journeyapps.co
 
 // Development token - UPDATE THIS WHEN IT EXPIRES
 // Last updated: 2026-01-31
-const POWERSYNC_DEV_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzIyM2Q0ZTMifQ.eyJzdWIiOiJkZXYtdXNlciIsImlhdCI6MTczODI1MDQ1MywiYXVkIjoiaHR0cHM6Ly82OTdkNWI5MWQ5MzAxMDBmNTAxNThiNGYucG93ZXJzeW5jLmpvdXJuZXlhcHBzLmNvbSIsImlzcyI6Imh0dHBzOi8vcG93ZXJzeW5jLmpvdXJuZXlhcHBzLmNvbSIsImV4cCI6MTczODMzNjg1M30.GSFB8vsM4WgtOTrxMNPshIxemM0tJTQiAdxJpyJWgzBJHJAzR5iPZJYKcPhfGnrqSmIhS3wdTtuZxdaIzegrRXdHbbLutj7bhBz3cU5FMyCL9eqDu2bDU4s9gc9a-9bBkKxmYT6e_5MFNH7ma9UiXuHSWHogjKLmYxWMhq1Fsi-hBuwDNdYqW6Ap7y8eWgqKv5g1XJ5aQTnPl5yHQA0U3guzNqNXH5bSL7_N0mq6-8Q5z0m5J7vsW4R8vNGaW7kdQPq-pKSbSFbLbYvWJVVpDT2hA-VJU4_HzqgE-qZmLN2RJWSZ9jzCvM8TpR3yQXN7vHxqB5cM2FnDqLsK6F8vYA';
+const POWERSYNC_DEV_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzIyM2Q0ZTMifQ.eyJzdWIiOiJ0ZXN0IiwiaWF0IjoxNzY5ODUyNzEyLCJpc3MiOiJodHRwczovL3Bvd2Vyc3luYy1hcGkuam91cm5leWFwcHMuY29tIiwiYXVkIjoiaHR0cHM6Ly82OTdkNWI5MWQ5MzAxMDBmNTAxNThiNGYucG93ZXJzeW5jLmpvdXJuZXlhcHBzLmNvbSIsImV4cCI6MTc2OTg5NTkxMn0.ntUfusnoYpc9ULB9ze0wI4689TSm1GWFT9_2zdfRWH-3juTKf0QhRovsLm9utQNxJK_ljVKCrFNSXnxo2TvP61H6PoFDDoCgILrF4cqR0WhhdID4m2ytLg-2Z3KwgaCbjGmFvww6coiira4-xThyvg5JivHyjkYNmS6vCRzQmLbTFEHqt4yrRaTZCeQ_0VevhjHyHRWOPEwkb5jINk9Qvyo8XkT0mEEgsLybh2z95QN09ZbvSCPuaYJ4BUzk5Ycwo_QaLA1TxyPOc2hHR3J3goxuwOq04R2q41TYu-MG5CpHRhqqXzwrkHBLcAgs1noyCBxUddJhRrXKiqLY550JyA';
 
 // ============ POWERSYNC SCHEMA ============
 // Define all tables that sync with Supabase
@@ -77,7 +77,8 @@ const activeReports = new Table(
         status: column.text,
         started_at: column.text,
         started_by: column.text,
-        last_heartbeat: column.text
+        last_heartbeat: column.text,
+        inspector_name: column.text // Name of inspector for display in lock UI
     },
     { name: 'active_reports' }
 );
