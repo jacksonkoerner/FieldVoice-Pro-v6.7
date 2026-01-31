@@ -4882,3 +4882,30 @@
                 initPWA();
             }
         });
+
+        // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============
+        window.showCancelReportModal = showCancelReportModal;
+        window.hideCancelReportModal = hideCancelReportModal;
+        window.confirmCancelReport = confirmCancelReport;
+        window.selectCaptureMode = selectCaptureMode;
+        window.showSwitchModeConfirm = showSwitchModeConfirm;
+        window.confirmSwitchMode = confirmSwitchMode;
+        window.closeSwitchModeModal = closeSwitchModeModal;
+        window.dismissWarningBanner = dismissWarningBanner;
+        window.dismissDictationHint = dismissDictationHint;
+        window.finishReport = finishReport;
+        window.finishMinimalReport = finishMinimalReport;
+        window.addFreeformEntry = addFreeformEntry;
+        window.toggleSection = toggleSection;
+        window.addEquipmentRow = addEquipmentRow;
+        window.markNA = markNA;
+        window.addIssue = addIssue;
+        window.addCommunication = addCommunication;
+        window.addQAQC = addQAQC;
+        window.addSafetyNote = addSafetyNote;
+        window.addVisitor = addVisitor;
+        window.requestMicrophonePermission = requestMicrophonePermission;
+        window.requestLocationPermission = requestLocationPermission;
+        window.closePermissionsModal = closePermissionsModal;
+        window.handleLockWarningBack = handleLockWarningBack;
+        window.handleLockWarningForceEdit = handleLockWarningForceEdit;
