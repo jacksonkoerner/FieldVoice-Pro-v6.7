@@ -351,10 +351,19 @@ async function saveProject() {
         console.log('[saveProject] Saved project to PowerSync:', currentProject.id);
 
         // Save contractors to PowerSync
+        console.log('[saveProject] currentProject.contractors:', currentProject.contractors);
+        console.log('[saveProject] Contractors count:', currentProject.contractors?.length || 0);
+
         // First, get existing contractors for this project to handle deletions
-        const existingContractors = await window.PowerSyncClient.getAll('contractors', {
-            where: { project_id: currentProject.id }
-        });
+        let existingContractors = [];
+        try {
+            existingContractors = await window.PowerSyncClient.getAll('contractors', {
+                where: { project_id: currentProject.id }
+            }) || [];
+            console.log('[saveProject] Existing contractors in DB:', existingContractors.length);
+        } catch (getErr) {
+            console.error('[saveProject] Failed to get existing contractors:', getErr);
+        }
         const existingIds = new Set(existingContractors.map(c => c.id));
         const currentIds = new Set((currentProject.contractors || []).map(c => c.id));
 
@@ -381,6 +390,7 @@ async function saveProject() {
                 removed_date: contractor.removedDate || null,
                 created_at: contractor.created_at || new Date().toISOString()
             };
+            console.log('[saveProject] Saving contractor:', contractorRecord.id, contractorRecord.name);
             await window.PowerSyncClient.save('contractors', contractorRecord);
         }
         console.log('[saveProject] Saved', (currentProject.contractors || []).length, 'contractors to PowerSync');
@@ -581,6 +591,10 @@ function saveContractor() {
     const trades = document.getElementById('contractorTrades').value.trim();
     const editId = document.getElementById('editContractorId').value;
 
+    console.log('[saveContractor] Called with:', { name, abbr, type, trades, editId });
+    console.log('[saveContractor] currentProject exists:', !!currentProject);
+    console.log('[saveContractor] currentProject.contractors before:', currentProject?.contractors);
+
     if (!name || !abbr) {
         showToast('Name and abbreviation are required', 'error');
         return;
@@ -594,17 +608,23 @@ function saveContractor() {
             contractor.abbreviation = abbr;
             contractor.type = type;
             contractor.trades = trades;
+            console.log('[saveContractor] Updated existing contractor:', editId);
         }
     } else {
         // Add new
-        currentProject.contractors.push({
+        const newContractor = {
             id: generateId(),
             name,
             abbreviation: abbr,
             type,
             trades
-        });
+        };
+        currentProject.contractors.push(newContractor);
+        console.log('[saveContractor] Added new contractor:', newContractor);
     }
+
+    console.log('[saveContractor] currentProject.contractors after:', currentProject.contractors);
+    console.log('[saveContractor] Contractors count:', currentProject.contractors.length);
 
     hideAddContractorForm();
     renderContractors();
