@@ -19,8 +19,8 @@ import './data-layer.js';
 import './sync-manager.js';
 
 // ============ SUPABASE INITIALIZATION ============
-const SUPABASE_URL = 'https://wejwhplqnhciyxbinivx.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlandocGxxbmhjaXl4YmluaXZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1NzkwNDUsImV4cCI6MjA4NTE1NTA0NX0.xFHzf7QpnHSnIuWR8ZmotaDzlZ2zwh_sEpzDLE3-JG4';
+const SUPABASE_URL = 'https://lpzjiporaieedxdsufcq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwemppcG9yYWllZWR4ZHN1ZmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4MjM0MzIsImV4cCI6MjA4NTM5OTQzMn0.5cBPVkyheEvNOE6my91EaX2TcYn18WYaN_v3iHEusHg';
 
 // Create and expose Supabase client globally
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

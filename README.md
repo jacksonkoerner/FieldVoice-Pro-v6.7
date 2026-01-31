@@ -56,7 +56,7 @@
 ### Backend & Storage
 | Service | Purpose | Notes |
 |---------|---------|-------|
-| **Supabase** | PostgreSQL database, authentication, real-time sync | Cloud-hosted at `ruzadotbgkjhgwkvotlz.supabase.co` |
+| **Supabase** | PostgreSQL database, authentication, real-time sync | Cloud-hosted at `lpzjiporaieedxdsufcq.supabase.co` |
 
 ### External APIs & Services
 | Service | Purpose | Authentication |
@@ -288,8 +288,8 @@ All shared modules are complete. v6 migration in progress.
 
 ### Supabase
 ```javascript
-const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+const SUPABASE_URL = 'https://lpzjiporaieedxdsufcq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwemppcG9yYWllZWR4ZHN1ZmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4MjM0MzIsImV4cCI6MjA4NTM5OTQzMn0.5cBPVkyheEvNOE6my91EaX2TcYn18WYaN_v3iHEusHg';
 ```
 
 ### Tailwind Theme Colors

@@ -854,12 +854,12 @@ await supabaseClient
 
 ## Appendix: Supabase Connection Details
 
-**URL:** `https://ruzadotbgkjhgwkvotlz.supabase.co`
+**URL:** `https://lpzjiporaieedxdsufcq.supabase.co`
 
 **Client Initialization:**
 ```javascript
-const SUPABASE_URL = 'https://ruzadotbgkjhgwkvotlz.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
+const SUPABASE_URL = 'https://lpzjiporaieedxdsufcq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxwemppcG9yYWllZWR4ZHN1ZmNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4MjM0MzIsImV4cCI6MjA4NTM5OTQzMn0.5cBPVkyheEvNOE6my91EaX2TcYn18WYaN_v3iHEusHg';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 ```
 
