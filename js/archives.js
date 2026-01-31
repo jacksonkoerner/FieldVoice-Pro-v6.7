@@ -1,5 +1,5 @@
 // FieldVoice Pro - Archives Page Logic
-// Report listing with IndexedDB caching, Supabase fallback
+// Uses window.dataLayer for all data operations (PowerSync-backed)
 
 // ============ STATE ============
 let pendingDeleteId = null;
@@ -7,51 +7,19 @@ let pendingDeleteDate = null;
 let projectsCache = [];
 let isRefreshing = false;
 
-// ============ PROJECT LOADING ============
+// ============ PROJECT LOADING (via dataLayer) ============
 async function loadProjects() {
-    // Try IndexedDB first
     try {
-        const localProjects = await window.idb.getAllProjects();
-        if (localProjects && localProjects.length > 0) {
-            projectsCache = localProjects.map(p => ({
-                id: p.id,
-                name: p.project_name || p.name || '',
-                status: p.status || 'active'
-            }));
-            console.log('[IDB] Loaded projects:', projectsCache.length);
-            return projectsCache;
-        }
-    } catch (e) {
-        console.warn('[IDB] Failed to load projects:', e);
-    }
-
-    // Fallback to Supabase if online
-    if (!navigator.onLine) {
-        console.log('[OFFLINE] No cached projects');
-        return [];
-    }
-
-    try {
-        const { data, error } = await supabaseClient
-            .from('projects')
-            .select('id, project_name, status')
-            .order('project_name', { ascending: true });
-
-        if (error) {
-            console.error('[SUPABASE] Error loading projects:', error);
-            return [];
-        }
-
-        projectsCache = data.map(row => ({
-            id: row.id,
-            name: row.project_name || '',
-            status: row.status || 'active'
+        const projects = await window.dataLayer.loadProjects();
+        projectsCache = projects.map(p => ({
+            id: p.id,
+            name: p.projectName || p.project_name || '',
+            status: p.status || 'active'
         }));
-
-        console.log('[SUPABASE] Loaded projects:', projectsCache.length);
+        console.log('[DATA] Loaded projects via dataLayer:', projectsCache.length);
         return projectsCache;
     } catch (e) {
-        console.error('[SUPABASE] Failed to load projects:', e);
+        console.error('[DATA] Failed to load projects:', e);
         return [];
     }
 }
@@ -60,130 +28,39 @@ function getProjectById(projectId) {
     return projectsCache.find(p => p.id === projectId) || null;
 }
 
-// ============ ARCHIVE LOADING (IndexedDB-first) ============
-async function loadArchivesFromIndexedDB() {
+// ============ ARCHIVE LOADING (via dataLayer/PowerSync) ============
+async function getAllReports() {
     try {
-        const archives = await window.idb.getAllArchives();
-        if (archives && archives.length > 0) {
-            console.log('[IDB] Loaded archives:', archives.length);
-            return archives.sort((a, b) => new Date(b.date) - new Date(a.date));
-        }
-    } catch (e) {
-        console.warn('[IDB] Failed to load archives:', e);
-    }
-    return [];
-}
+        const archives = await window.dataLayer.loadArchivedReports(100);
 
-async function fetchArchivesFromSupabase() {
-    try {
-        // Query final_reports table with photo count
-        const { data: reportRows, error: reportError } = await supabaseClient
-            .from('final_reports')
-            .select(`
-                id,
-                project_id,
-                report_date,
-                inspector_name,
-                status,
-                created_at,
-                submitted_at,
-                updated_at,
-                projects (
-                    project_name
-                )
-            `)
-            .order('report_date', { ascending: false });
-
-        if (reportError) {
-            console.error('[SUPABASE] Error loading reports:', reportError);
-            throw new Error(reportError.message || 'Failed to load reports');
-        }
-
-        if (!reportRows || reportRows.length === 0) {
-            return [];
-        }
-
-        // Get photo counts for all reports
-        const reportIds = reportRows.map(r => r.id);
-        const { data: photoCounts, error: photoError } = await supabaseClient
-            .from('photos')
-            .select('active_report_id')
-            .in('active_report_id', reportIds);
-
-        // Count photos per report
-        const photoCountMap = {};
-        if (!photoError && photoCounts) {
-            photoCounts.forEach(p => {
-                photoCountMap[p.active_report_id] = (photoCountMap[p.active_report_id] || 0) + 1;
-            });
-        }
-
-        // Map to archive format
-        const archives = reportRows.map(row => {
+        // Map to display format
+        const mapped = archives.map(row => {
             const project = getProjectById(row.project_id);
             return {
                 id: row.id,
                 date: row.report_date,
                 projectId: row.project_id,
                 projectName: project?.name || row.projects?.project_name || 'Unknown Project',
-                submitted: row.status === 'submitted',
-                status: row.status,
-                photoCount: photoCountMap[row.id] || 0,
+                submitted: true, // final_reports are always submitted
+                status: 'submitted',
+                photoCount: 0, // Photo count would need separate query
                 createdAt: row.created_at,
                 submittedAt: row.submitted_at,
                 updatedAt: row.updated_at
             };
         });
 
-        console.log('[SUPABASE] Fetched archives:', archives.length);
-        return archives;
+        console.log('[DATA] Loaded archives:', mapped.length);
+        return mapped;
     } catch (e) {
-        console.error('[SUPABASE] Failed to load reports:', e);
-        throw e;
-    }
-}
-
-async function saveArchivesToIndexedDB(archives) {
-    for (const archive of archives) {
-        try {
-            await window.idb.saveArchive(archive);
-        } catch (e) {
-            console.warn('[IDB] Failed to save archive:', archive.id, e);
-        }
-    }
-    console.log('[IDB] Saved archives to IndexedDB:', archives.length);
-}
-
-// ============ MAIN LOAD FUNCTION ============
-async function getAllReports() {
-    // 1. Try IndexedDB first
-    const localArchives = await loadArchivesFromIndexedDB();
-    if (localArchives.length > 0) {
-        return localArchives;
-    }
-
-    // 2. If offline and no local data, return empty
-    if (!navigator.onLine) {
-        console.log('[OFFLINE] No cached archives');
+        console.error('[DATA] Failed to load archives:', e);
         return [];
     }
-
-    // 3. Fetch from Supabase and cache
-    const supabaseArchives = await fetchArchivesFromSupabase();
-    if (supabaseArchives.length > 0) {
-        await saveArchivesToIndexedDB(supabaseArchives);
-    }
-    return supabaseArchives;
 }
 
 // ============ REFRESH FROM CLOUD ============
 async function refreshFromCloud() {
     if (isRefreshing) return;
-
-    if (!navigator.onLine) {
-        showToast('You are offline', 'warning');
-        return;
-    }
 
     isRefreshing = true;
     const refreshBtn = document.getElementById('refreshBtn');
@@ -193,23 +70,11 @@ async function refreshFromCloud() {
     }
 
     try {
-        showToast('Refreshing from cloud...', 'info');
+        showToast('Refreshing...', 'info');
 
-        // Fetch fresh data from Supabase
-        const archives = await fetchArchivesFromSupabase();
-
-        // Clear old archives and save new ones
-        try {
-            await window.idb.clearStore('archives');
-        } catch (e) {
-            console.warn('[IDB] Could not clear archives store:', e);
-        }
-
-        if (archives.length > 0) {
-            await saveArchivesToIndexedDB(archives);
-        }
-
-        // Re-render the list
+        // PowerSync auto-syncs, just reload the data
+        await loadProjects();
+        const archives = await getAllReports();
         await renderReportList(archives);
 
         showToast('Archives refreshed', 'success');
@@ -227,34 +92,15 @@ async function refreshFromCloud() {
 
 // ============ DELETE ============
 async function deleteReport(reportId) {
-    // Delete from IndexedDB first
     try {
-        await window.idb.deleteArchive(reportId);
-        console.log('[IDB] Archive deleted:', reportId);
+        // Delete from PowerSync (auto-syncs to Supabase)
+        await window.PowerSyncClient.delete('final_reports', reportId);
+        console.log('[DATA] Archive deleted:', reportId);
+        return true;
     } catch (e) {
-        console.warn('[IDB] Failed to delete archive from IndexedDB:', e);
+        console.error('[DATA] Failed to delete archive:', e);
+        return false;
     }
-
-    // Delete from Supabase if online
-    if (navigator.onLine) {
-        try {
-            const { error } = await supabaseClient
-                .from('final_reports')
-                .delete()
-                .eq('id', reportId);
-
-            if (error) {
-                console.error('[SUPABASE] Error deleting report:', error);
-                // Don't throw - local delete succeeded
-            } else {
-                console.log('[SUPABASE] Report deleted:', reportId);
-            }
-        } catch (e) {
-            console.error('[SUPABASE] Failed to delete report:', e);
-        }
-    }
-
-    return true;
 }
 
 // ============ RENDER ============

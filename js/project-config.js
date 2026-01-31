@@ -264,29 +264,18 @@ function createNewProject() {
 
 async function loadProject(projectId) {
     try {
-        let project = null;
-
-        // LOCAL-FIRST: Try IndexedDB first for faster loading
-        try {
-            project = await window.idb.getProject(projectId);
-            if (project) {
-                console.log('[loadProject] Found in IndexedDB:', projectId);
-            }
-        } catch (idbError) {
-            console.warn('[loadProject] IndexedDB error:', idbError);
-        }
-
-        // Fall back to getProjects() if not found in IndexedDB
-        if (!project) {
-            console.log('[loadProject] Not in IndexedDB, falling back to getProjects()');
-            const projects = await window.dataLayer.loadProjects();
-            project = projects.find(p => p.id === projectId);
-        }
+        // Load from PowerSync via dataLayer (auto-syncs with Supabase)
+        const projects = await window.dataLayer.loadProjects();
+        const project = projects.find(p => p.id === projectId);
 
         if (project) {
+            console.log('[loadProject] Found in PowerSync:', projectId);
             currentProject = JSON.parse(JSON.stringify(project)); // Deep copy
             populateForm();
             showProjectForm();
+        } else {
+            console.warn('[loadProject] Project not found:', projectId);
+            showToast('Project not found', 'error');
         }
     } catch (error) {
         console.error('Error loading project:', error);
@@ -324,7 +313,7 @@ async function saveProject() {
     currentProject.weatherDays = parseInt(document.getElementById('weatherDays').value) || 0;
     currentProject.contractDayNo = parseInt(document.getElementById('contractDayNo').value) || '';
 
-    // Ensure created_by is set for IndexedDB filtering
+    // Ensure created_by is set for PowerSync/Supabase filtering
     const userId = getStorageItem(STORAGE_KEYS.USER_ID);
     if (userId && !currentProject.created_by) {
         currentProject.created_by = userId;
@@ -335,26 +324,37 @@ async function saveProject() {
         currentProject.created_at = new Date().toISOString();
     }
 
-    // LOCAL-FIRST: Save to IndexedDB first
+    // Save to PowerSync (auto-syncs to Supabase)
     try {
-        await window.idb.saveProject(currentProject);
-        console.log('[saveProject] Saved to IndexedDB:', currentProject.id);
-    } catch (idbError) {
-        console.error('[saveProject] IndexedDB save failed:', idbError);
-        // Continue to try Supabase anyway
-    }
+        // Convert to snake_case for PowerSync
+        const record = {
+            id: currentProject.id,
+            project_name: currentProject.name || currentProject.projectName || '',
+            location: currentProject.location || '',
+            status: currentProject.status || 'active',
+            prime_contractor: currentProject.primeContractor || '',
+            engineer: currentProject.engineer || '',
+            logo: currentProject.logo || null,
+            cno_solicitation_no: currentProject.cnoSolicitationNo || 'N/A',
+            noab_project_no: currentProject.noabProjectNo || '',
+            contract_duration: currentProject.contractDuration || '',
+            notice_to_proceed: currentProject.noticeToProceed || '',
+            expected_completion: currentProject.expectedCompletion || '',
+            weather_days: currentProject.weatherDays || 0,
+            default_start_time: currentProject.defaultStartTime || '06:00',
+            default_end_time: currentProject.defaultEndTime || '16:00',
+            created_by: currentProject.created_by || userId || '',
+            created_at: currentProject.created_at
+        };
 
-    // Then sync to Supabase (backup)
-    try {
-        await saveProjectToSupabase(currentProject);
-        console.log('[saveProject] Synced to Supabase:', currentProject.id);
+        await window.PowerSyncClient.save('projects', record);
+        console.log('[saveProject] Saved to PowerSync:', currentProject.id);
         clearDirty();
         showToast('Project saved successfully');
-    } catch (supabaseError) {
-        // Offline or Supabase error - local save succeeded, warn user
-        console.warn('[saveProject] Supabase sync failed (offline?):', supabaseError);
-        clearDirty();
-        showToast('Project saved locally (offline)', 'warning');
+    } catch (error) {
+        console.error('[saveProject] PowerSync save failed:', error);
+        showToast('Failed to save project', 'error');
+        return; // Don't navigate on error
     }
 
     // Navigate to projects.html after save
@@ -365,24 +365,15 @@ async function saveProject() {
 
 function deleteProject(projectId) {
     showDeleteModal('Are you sure you want to delete this project? This cannot be undone.', async () => {
-        // LOCAL-FIRST: Delete from IndexedDB first
+        // Delete from PowerSync (auto-syncs to Supabase)
         try {
-            await window.idb.deleteProject(projectId);
-            console.log('[deleteProject] Deleted from IndexedDB:', projectId);
-        } catch (idbError) {
-            console.error('[deleteProject] IndexedDB delete failed:', idbError);
-            // Continue to try Supabase anyway
-        }
-
-        // Then delete from Supabase (backup)
-        try {
-            await deleteProjectFromSupabase(projectId);
-            console.log('[deleteProject] Deleted from Supabase:', projectId);
+            await window.PowerSyncClient.delete('projects', projectId);
+            console.log('[deleteProject] Deleted from PowerSync:', projectId);
             showToast('Project deleted');
-        } catch (supabaseError) {
-            // Offline or Supabase error - local delete succeeded, warn user
-            console.warn('[deleteProject] Supabase delete failed (offline?):', supabaseError);
-            showToast('Project deleted locally (offline)', 'warning');
+        } catch (error) {
+            console.error('[deleteProject] PowerSync delete failed:', error);
+            showToast('Failed to delete project', 'error');
+            return;
         }
 
         // Clear active project if it was deleted
@@ -1111,12 +1102,14 @@ function handleMissingFieldInput(e) {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize IndexedDB first for local-first storage
+    // Initialize IndexedDB for photo storage (projects now use PowerSync)
     try {
-        await window.idb.initDB();
-        console.log('[project-config] IndexedDB initialized');
+        if (window.idb && typeof window.idb.initDB === 'function') {
+            await window.idb.initDB();
+            console.log('[project-config] IndexedDB initialized (for photos)');
+        }
     } catch (error) {
-        console.error('[project-config] Failed to initialize IndexedDB:', error);
+        console.warn('[project-config] IndexedDB init failed (photos may not work offline):', error);
     }
 
     setupDropZone();

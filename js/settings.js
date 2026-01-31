@@ -30,7 +30,7 @@ async function loadSettings() {
         setDirty(true);
         console.log('[SETTINGS] Restored unsaved changes from scratch pad');
     } else {
-        // 2. Load from IndexedDB via data-layer (IndexedDB-first, Supabase-fallback)
+        // 2. Load from PowerSync via data-layer (local-first, syncs with Supabase)
         const profile = await window.dataLayer.loadUserSettings();
 
         if (profile) {
@@ -179,7 +179,7 @@ async function saveSettings() {
         updatedAt: new Date().toISOString()
     };
 
-    // Step 4: Save to IndexedDB first (local-first, source of truth)
+    // Step 4: Save to PowerSync first (local-first, auto-syncs to Supabase)
     const savedToIDB = await window.dataLayer.saveUserSettings(profile);
     if (!savedToIDB) {
         showToast('Failed to save locally', 'error');
@@ -221,7 +221,7 @@ async function saveSettings() {
             setStorageItem(STORAGE_KEYS.USER_ID, returnedId);
             currentProfileId = returnedId;
 
-            // Update IndexedDB with the id from Supabase
+            // Update PowerSync with the id from Supabase
             profile.id = returnedId;
             await window.dataLayer.saveUserSettings(profile);
         }
@@ -231,7 +231,7 @@ async function saveSettings() {
         storeOriginalValues();
         setDirty(false);
 
-        console.log('[saveSettings] Profile saved to IndexedDB + Supabase');
+        console.log('[saveSettings] Profile saved to PowerSync + Supabase');
         showToast('Profile saved');
     } catch (e) {
         console.error('[saveSettings] Exception:', e);
@@ -246,7 +246,7 @@ async function saveSettings() {
 
 /**
  * Refresh profile from Supabase (pull latest cloud data)
- * Overwrites scratch pad but requires Save to commit to IndexedDB
+ * Overwrites scratch pad but requires Save to commit to PowerSync
  */
 async function refreshFromCloud() {
     if (!navigator.onLine) {
@@ -293,7 +293,7 @@ async function refreshFromCloud() {
             setStorageItem(STORAGE_KEYS.USER_ID, data.id);
         }
 
-        // Mark as dirty - user needs to Save to commit to IndexedDB
+        // Mark as dirty - user needs to Save to commit to PowerSync
         setDirty(true);
         saveScratchData();
         updateSignaturePreview();
@@ -509,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Load settings from IndexedDB (or scratch pad if unsaved changes exist)
+    // Load settings from PowerSync (or scratch pad if unsaved changes exist)
     loadSettings();
 
     // Initialize PWA features (service worker, offline banner, etc.)

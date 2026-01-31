@@ -1,9 +1,20 @@
 import { defineConfig } from 'vite';
 import wasm from 'vite-plugin-wasm';
 import topLevelAwait from 'vite-plugin-top-level-await';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
-  plugins: [wasm(), topLevelAwait()],
+  plugins: [
+    wasm(),
+    topLevelAwait(),
+    viteStaticCopy({
+      targets: [
+        { src: 'sw.js', dest: '' },
+        { src: 'manifest.json', dest: '' },
+        { src: 'icons/*', dest: 'icons' }
+      ]
+    })
+  ],
   base: '/FieldVoice-Pro-v6.7/',
   build: {
     outDir: 'dist',
