@@ -230,14 +230,12 @@
             // Convert to snake_case for PowerSync/Supabase
             const record = {
                 id: normalized.id || crypto.randomUUID(),
+                device_id: normalized.deviceId || '',
                 full_name: normalized.fullName || '',
-                email: normalized.email || '',
-                phone: normalized.phone || '',
+                title: normalized.title || '',
                 company: normalized.company || '',
-                role: normalized.title || '', // Map title to role
-                preferences: JSON.stringify({
-                    deviceId: normalized.deviceId
-                })
+                email: normalized.email || '',
+                phone: normalized.phone || ''
             };
 
             await window.PowerSyncClient.save('user_profiles', record);
