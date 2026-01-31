@@ -391,10 +391,10 @@
             // Load related data in parallel
             // Note: user_edits, contractor_work, personnel, and equipment_usage now stored in report_raw_capture.raw_data
             const [rawCaptureResult, photosResult, aiResponseResult] = await Promise.all([
-                supabaseClient.from('report_raw_capture').select('*').eq('report_id', reportRow.id).maybeSingle(),
-                supabaseClient.from('photos').select('*').eq('report_id', reportRow.id).order('created_at', { ascending: true }),
+                supabaseClient.from('report_raw_capture').select('*').eq('active_report_id', reportRow.id).maybeSingle(),
+                supabaseClient.from('photos').select('*').eq('active_report_id', reportRow.id).order('created_at', { ascending: true }),
                 // Get most recent AI response (handles multiple rows from retries)
-                supabaseClient.from('ai_responses').select('*').eq('report_id', reportRow.id).order('received_at', { ascending: false }).limit(1).maybeSingle()
+                supabaseClient.from('ai_responses').select('*').eq('active_report_id', reportRow.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
             ]);
 
             // Build the report object
@@ -478,7 +478,7 @@
                     caption: p.caption || '',
                     date: p.taken_at ? new Date(p.taken_at).toLocaleDateString() : '',
                     time: p.taken_at ? new Date(p.taken_at).toLocaleTimeString() : '',
-                    gps: p.gps_lat && p.gps_lng ? { lat: p.gps_lat, lng: p.gps_lng } : null
+                    gps: p.location_lat && p.location_lng ? { lat: p.location_lat, lng: p.location_lng } : null
                 }));
             }
 
@@ -1710,7 +1710,7 @@
                 : [];
 
             const rawCaptureData = {
-                report_id: reportId,
+                active_report_id: reportId,
                 capture_mode: report.meta?.captureMode || 'guided',
                 freeform_notes: report.fieldNotes?.freeformNotes || '',
                 work_summary: report.guidedNotes?.workSummary || '',
@@ -1731,7 +1731,7 @@
             await supabaseClient
                 .from('report_raw_capture')
                 .delete()
-                .eq('report_id', reportId);
+                .eq('active_report_id', reportId);
 
             await supabaseClient
                 .from('report_raw_capture')
