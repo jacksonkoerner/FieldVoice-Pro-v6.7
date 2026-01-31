@@ -356,104 +356,231 @@ export function isPowerSyncReady() {
     return powerSyncDb !== null && syncStatus.connected;
 }
 
-// Wait for PowerSync to be ready
-export async function waitForPowerSync() {
+// Default timeout for PowerSync operations (5 seconds)
+const POWERSYNC_TIMEOUT_MS = 5000;
+
+/**
+ * Wait for PowerSync to be ready with timeout
+ * Returns null if timeout is reached (allows graceful degradation)
+ * @param {number} timeoutMs - Timeout in milliseconds (default 5000)
+ * @returns {Promise<PowerSyncDatabase|null>}
+ */
+export async function waitForPowerSync(timeoutMs = POWERSYNC_TIMEOUT_MS) {
+    // If already connected, return immediately
     if (powerSyncDb && syncStatus.connected) {
         return powerSyncDb;
     }
-    return initPowerSync();
+
+    // If database exists but not connected, return it (can still do local queries)
+    if (powerSyncDb) {
+        console.warn('[PowerSync] Database exists but not connected, proceeding with local-only mode');
+        return powerSyncDb;
+    }
+
+    // Try to initialize with timeout
+    try {
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('PowerSync initialization timeout')), timeoutMs)
+        );
+
+        const result = await Promise.race([
+            initPowerSync(),
+            timeoutPromise
+        ]);
+
+        return result;
+    } catch (error) {
+        console.error('[PowerSync] waitForPowerSync failed:', error.message);
+        // Return existing db if available (local-only mode), otherwise null
+        return powerSyncDb || null;
+    }
+}
+
+/**
+ * Check if PowerSync is available (with quick timeout)
+ * Use this before operations to fail fast if PowerSync isn't ready
+ * @returns {Promise<boolean>}
+ */
+export async function isPowerSyncAvailable() {
+    if (powerSyncDb) return true;
+
+    try {
+        const db = await waitForPowerSync(2000); // Quick 2s timeout
+        return db !== null;
+    } catch {
+        return false;
+    }
 }
 
 // ============ QUERY HELPERS ============
 
-// Get all records from a table
+/**
+ * Get all records from a table with timeout protection
+ * Returns empty array if PowerSync is unavailable
+ */
 export async function psGetAll(tableName, options = {}) {
     const db = await waitForPowerSync();
-    let query = `SELECT * FROM ${tableName}`;
-    const params = [];
+    if (!db) {
+        console.warn(`[PowerSync] psGetAll(${tableName}) - database unavailable, returning empty array`);
+        return [];
+    }
 
-    if (options.where && Object.keys(options.where).length > 0) {
-        const whereClauses = [];
-        for (const [key, value] of Object.entries(options.where)) {
-            whereClauses.push(`${key} = ?`);
-            params.push(value);
+    try {
+        let query = `SELECT * FROM ${tableName}`;
+        const params = [];
+
+        if (options.where && Object.keys(options.where).length > 0) {
+            const whereClauses = [];
+            for (const [key, value] of Object.entries(options.where)) {
+                whereClauses.push(`${key} = ?`);
+                params.push(value);
+            }
+            query += ` WHERE ${whereClauses.join(' AND ')}`;
         }
-        query += ` WHERE ${whereClauses.join(' AND ')}`;
-    }
 
-    if (options.orderBy) {
-        query += ` ORDER BY ${options.orderBy}`;
-        if (options.orderDesc) {
-            query += ' DESC';
+        if (options.orderBy) {
+            query += ` ORDER BY ${options.orderBy}`;
+            if (options.orderDesc) {
+                query += ' DESC';
+            }
         }
-    }
 
-    if (options.limit) {
-        query += ` LIMIT ${options.limit}`;
-    }
+        if (options.limit) {
+            query += ` LIMIT ${options.limit}`;
+        }
 
-    const result = await db.getAll(query, params);
-    return result;
+        const result = await db.getAll(query, params);
+        return result;
+    } catch (error) {
+        console.error(`[PowerSync] psGetAll(${tableName}) error:`, error);
+        return [];
+    }
 }
 
-// Get a single record by ID
+/**
+ * Get a single record by ID with timeout protection
+ * Returns null if PowerSync is unavailable
+ */
 export async function psGet(tableName, id) {
     const db = await waitForPowerSync();
-    const result = await db.get(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
-    return result;
+    if (!db) {
+        console.warn(`[PowerSync] psGet(${tableName}, ${id}) - database unavailable`);
+        return null;
+    }
+
+    try {
+        const result = await db.get(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
+        return result;
+    } catch (error) {
+        console.error(`[PowerSync] psGet(${tableName}, ${id}) error:`, error);
+        return null;
+    }
 }
 
-// Insert or update a record
+/**
+ * Insert or update a record with timeout protection
+ * Returns the record if successful, null if failed
+ */
 export async function psSave(tableName, record) {
     const db = await waitForPowerSync();
-
-    // Ensure record has an ID
-    if (!record.id) {
-        record.id = crypto.randomUUID();
+    if (!db) {
+        console.error(`[PowerSync] psSave(${tableName}) - database unavailable, cannot save`);
+        return null;
     }
 
-    // Add timestamps - only for tables that have these columns
-    const now = new Date().toISOString();
+    try {
+        // Ensure record has an ID
+        if (!record.id) {
+            record.id = crypto.randomUUID();
+        }
 
-    // Tables that have created_at column
-    const tablesWithCreatedAt = ['user_profiles', 'projects', 'contractors', 'active_reports', 'ai_requests', 'ai_responses', 'final_reports'];
-    if (tablesWithCreatedAt.includes(tableName) && !record.created_at) {
-        record.created_at = now;
+        // Add timestamps - only for tables that have these columns
+        const now = new Date().toISOString();
+
+        // Tables that have created_at column
+        const tablesWithCreatedAt = ['user_profiles', 'projects', 'contractors', 'active_reports', 'ai_requests', 'ai_responses', 'final_reports'];
+        if (tablesWithCreatedAt.includes(tableName) && !record.created_at) {
+            record.created_at = now;
+        }
+
+        // Tables that have updated_at column (NOT active_reports, ai_requests, ai_responses)
+        const tablesWithUpdatedAt = ['user_profiles', 'projects', 'contractors', 'final_reports'];
+        if (tablesWithUpdatedAt.includes(tableName)) {
+            record.updated_at = now;
+        }
+
+        // Build upsert query
+        const columns = Object.keys(record);
+        const placeholders = columns.map(() => '?').join(', ');
+        const values = columns.map(col => record[col]);
+
+        const query = `INSERT OR REPLACE INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
+
+        await db.execute(query, values);
+        return record;
+    } catch (error) {
+        console.error(`[PowerSync] psSave(${tableName}) error:`, error);
+        return null;
     }
-
-    // Tables that have updated_at column (NOT active_reports, ai_requests, ai_responses)
-    const tablesWithUpdatedAt = ['user_profiles', 'projects', 'contractors', 'final_reports'];
-    if (tablesWithUpdatedAt.includes(tableName)) {
-        record.updated_at = now;
-    }
-
-    // Build upsert query
-    const columns = Object.keys(record);
-    const placeholders = columns.map(() => '?').join(', ');
-    const values = columns.map(col => record[col]);
-
-    const query = `INSERT OR REPLACE INTO ${tableName} (${columns.join(', ')}) VALUES (${placeholders})`;
-
-    await db.execute(query, values);
-    return record;
 }
 
-// Delete a record by ID
+/**
+ * Delete a record by ID with timeout protection
+ * Returns true if successful, false if failed
+ */
 export async function psDelete(tableName, id) {
     const db = await waitForPowerSync();
-    await db.execute(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
+    if (!db) {
+        console.error(`[PowerSync] psDelete(${tableName}, ${id}) - database unavailable`);
+        return false;
+    }
+
+    try {
+        await db.execute(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
+        return true;
+    } catch (error) {
+        console.error(`[PowerSync] psDelete(${tableName}, ${id}) error:`, error);
+        return false;
+    }
 }
 
-// Execute a custom query
+/**
+ * Execute a custom query with timeout protection
+ * Returns empty array if failed
+ */
 export async function psQuery(sql, params = []) {
     const db = await waitForPowerSync();
-    return db.getAll(sql, params);
+    if (!db) {
+        console.warn('[PowerSync] psQuery - database unavailable');
+        return [];
+    }
+
+    try {
+        return await db.getAll(sql, params);
+    } catch (error) {
+        console.error('[PowerSync] psQuery error:', error);
+        return [];
+    }
 }
 
-// Execute a custom command (INSERT, UPDATE, DELETE)
+/**
+ * Execute a custom command (INSERT, UPDATE, DELETE) with timeout protection
+ * Returns true if successful, false if failed
+ */
 export async function psExecute(sql, params = []) {
     const db = await waitForPowerSync();
-    return db.execute(sql, params);
+    if (!db) {
+        console.error('[PowerSync] psExecute - database unavailable');
+        return false;
+    }
+
+    try {
+        await db.execute(sql, params);
+        return true;
+    } catch (error) {
+        console.error('[PowerSync] psExecute error:', error);
+        return false;
+    }
 }
 
 // ============ CONNECTION TEST ============
@@ -484,6 +611,7 @@ window.PowerSyncClient = {
     getDb: getPowerSync,
     getStatus: getSyncStatus,
     isReady: isPowerSyncReady,
+    isAvailable: isPowerSyncAvailable,
     waitFor: waitForPowerSync,
 
     // Query helpers
@@ -502,5 +630,6 @@ window.PowerSyncClient = {
 window.initPowerSync = initPowerSync;
 window.getPowerSync = getPowerSync;
 window.getSyncStatus = getSyncStatus;
+window.isPowerSyncAvailable = isPowerSyncAvailable;
 
 console.log('[PowerSync] Module loaded. Call initPowerSync() to connect.');

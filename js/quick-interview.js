@@ -4764,25 +4764,57 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            // Helper: Load data with timeout to prevent UI from hanging
+            async function loadWithTimeout(loader, name, defaultValue, timeoutMs = 5000) {
+                try {
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error(`${name} timeout`)), timeoutMs)
+                    );
+                    return await Promise.race([loader(), timeoutPromise]);
+                } catch (err) {
+                    console.warn(`[INIT] ${name} failed or timed out:`, err.message);
+                    return defaultValue;
+                }
+            }
+
             try {
                 // STATE PROTECTION: Check if report is already refined BEFORE any other initialization
                 // This must run first to redirect users away from editing refined reports
                 updateLoadingStatus('Checking report state...');
-                const canEdit = await checkReportState();
+                const canEdit = await loadWithTimeout(
+                    () => checkReportState(),
+                    'checkReportState',
+                    true, // Default to true so we don't block on errors
+                    5000
+                );
                 if (!canEdit) {
                     return; // Stop initialization if redirecting
                 }
 
-                // Load user settings from Supabase
+                // Load user settings with timeout protection
                 updateLoadingStatus('Loading user settings...');
-                userSettings = await window.dataLayer.loadUserSettings();
+                userSettings = await loadWithTimeout(
+                    () => window.dataLayer.loadUserSettings(),
+                    'loadUserSettings',
+                    null,
+                    5000
+                );
 
                 // v6: Initialize sync manager for real-time backup
-                initSyncManager();
+                try {
+                    initSyncManager();
+                } catch (syncErr) {
+                    console.warn('[INIT] Sync manager init failed:', syncErr);
+                }
 
-                // Load active project and contractors from Supabase
+                // Load active project with timeout protection
                 updateLoadingStatus('Loading project data...');
-                activeProject = await window.dataLayer.loadActiveProject();
+                activeProject = await loadWithTimeout(
+                    () => window.dataLayer.loadActiveProject(),
+                    'loadActiveProject',
+                    null,
+                    5000
+                );
                 if (activeProject) {
                     projectContractors = activeProject.contractors || [];
                 }

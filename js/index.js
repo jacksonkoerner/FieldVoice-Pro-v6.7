@@ -710,51 +710,85 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Initialize sync manager first (non-blocking)
     try {
-        // Initialize sync manager
         initSyncManager();
+    } catch (syncErr) {
+        console.warn('[INIT] Sync manager init failed:', syncErr);
+    }
 
-        // Load projects from PowerSync (auto-syncs with Supabase)
-        let projects = await window.dataLayer.loadProjects();
+    // Helper: Load data with timeout to prevent UI from hanging
+    async function loadDataWithTimeout(loader, name, defaultValue, timeoutMs = 5000) {
+        try {
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`${name} timeout`)), timeoutMs)
+            );
+            return await Promise.race([loader(), timeoutPromise]);
+        } catch (err) {
+            console.warn(`[INIT] ${name} failed or timed out:`, err.message);
+            return defaultValue;
+        }
+    }
 
-        // PowerSync auto-syncs - no manual refresh needed
-        // Projects will be empty if user hasn't created any yet
+    // Load projects and active project with timeout protection
+    // UI will render with empty data if loading fails/times out
+    let projects = [];
+    try {
+        projects = await loadDataWithTimeout(
+            () => window.dataLayer.loadProjects(),
+            'loadProjects',
+            [],
+            5000
+        );
+    } catch (err) {
+        console.error('[INIT] Projects load failed:', err);
+    }
 
-        // Cache projects for this page
-        projectsCache = projects;
+    // Cache projects for this page
+    projectsCache = projects;
 
-        // Load active project
-        activeProjectCache = await window.dataLayer.loadActiveProject();
+    // Load active project (non-blocking if it fails)
+    try {
+        activeProjectCache = await loadDataWithTimeout(
+            () => window.dataLayer.loadActiveProject(),
+            'loadActiveProject',
+            null,
+            3000
+        );
+    } catch (err) {
+        console.warn('[INIT] Active project load failed:', err);
+        activeProjectCache = null;
+    }
 
-        // Update UI - reports come from localStorage now
-        updateActiveProjectCard();
-        renderReportCards();
-        updateReportStatus();
-        updateDraftsSection();
+    // ALWAYS update UI - regardless of data loading success
+    // This ensures the dashboard renders even if PowerSync is unavailable
+    updateActiveProjectCard();
+    renderReportCards();
+    updateReportStatus();
+    updateDraftsSection();
 
-        // Show submitted banner if there are submitted reports today and not dismissed this session
+    // Show submitted banner if there are submitted reports today and not dismissed this session
+    try {
         const bannerDismissedThisSession = sessionStorage.getItem('fvp_submitted_banner_dismissed') === 'true';
         const { todaySubmitted } = getReportsByUrgency();
         if (todaySubmitted.length > 0 && !bannerDismissedThisSession) {
             document.getElementById('submittedBanner').classList.remove('hidden');
         }
-
-        // Sync weather
-        syncWeather();
-
-        // Initialize PWA features (service worker, offline banner, etc.)
-        initPWA({ onOnline: updateDraftsSection });
-    } catch (err) {
-        console.error('Failed to initialize:', err);
-        // Still update UI with whatever we have
-        updateActiveProjectCard();
-        renderReportCards();
-        updateReportStatus();
-        updateDraftsSection();
-        syncWeather();
-        // Still init PWA for offline support
-        initPWA({ onOnline: updateDraftsSection });
+    } catch (bannerErr) {
+        console.warn('[INIT] Banner check failed:', bannerErr);
     }
+
+    // Sync weather (non-blocking)
+    syncWeather();
+
+    // Initialize PWA features (service worker, offline banner, etc.)
+    try {
+        initPWA({ onOnline: updateDraftsSection });
+    } catch (pwaErr) {
+        console.warn('[INIT] PWA init failed:', pwaErr);
+    }
+
+    console.log('[INIT] Dashboard initialization complete');
 });
 
 // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============

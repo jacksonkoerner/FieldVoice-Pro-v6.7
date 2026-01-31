@@ -13,6 +13,26 @@ let originalValues = {};
 const SETTINGS_SCRATCH_KEY = 'fvp_settings_scratch';
 
 // ============ PROFILE MANAGEMENT ============
+
+/**
+ * Helper to load data with timeout protection
+ * @param {Function} loader - Async function to call
+ * @param {string} name - Name for logging
+ * @param {*} defaultValue - Default value if loading fails
+ * @param {number} timeoutMs - Timeout in milliseconds
+ */
+async function loadWithTimeout(loader, name, defaultValue, timeoutMs = 5000) {
+    try {
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${name} timeout`)), timeoutMs)
+        );
+        return await Promise.race([loader(), timeoutPromise]);
+    } catch (err) {
+        console.warn(`[SETTINGS] ${name} failed or timed out:`, err.message);
+        return defaultValue;
+    }
+}
+
 async function loadSettings() {
     // 1. First check for unsaved scratch data in localStorage
     const scratch = getScratchData();
@@ -30,8 +50,13 @@ async function loadSettings() {
         setDirty(true);
         console.log('[SETTINGS] Restored unsaved changes from scratch pad');
     } else {
-        // 2. Load from PowerSync via data-layer (local-first, syncs with Supabase)
-        const profile = await window.dataLayer.loadUserSettings();
+        // 2. Load from PowerSync via data-layer with timeout protection
+        const profile = await loadWithTimeout(
+            () => window.dataLayer.loadUserSettings(),
+            'loadUserSettings',
+            null,
+            5000
+        );
 
         if (profile) {
             currentProfileId = profile.id || null;
@@ -179,10 +204,22 @@ async function saveSettings() {
         updatedAt: new Date().toISOString()
     };
 
-    // Step 4: Save to PowerSync first (local-first, auto-syncs to Supabase)
-    const savedToIDB = await window.dataLayer.saveUserSettings(profile);
+    // Step 4: Save to PowerSync first with timeout protection
+    let savedToIDB = false;
+    try {
+        savedToIDB = await loadWithTimeout(
+            () => window.dataLayer.saveUserSettings(profile),
+            'saveUserSettings',
+            false,
+            5000
+        );
+    } catch (saveErr) {
+        console.error('[saveSettings] PowerSync save failed:', saveErr);
+        savedToIDB = false;
+    }
+
     if (!savedToIDB) {
-        showToast('Failed to save locally', 'error');
+        showToast('Failed to save locally. Please try again.', 'error');
         return;
     }
 
@@ -194,15 +231,22 @@ async function saveSettings() {
 
     updateSignaturePreview();
 
-    // Step 6: Try to upsert to Supabase (cloud backup)
+    // Step 6: Try to upsert to Supabase (cloud backup) with timeout protection
     try {
         const supabaseData = toSupabaseUserProfile(profile);
 
-        const result = await supabaseClient
+        // Wrap Supabase call in timeout
+        const supabasePromise = supabaseClient
             .from('user_profiles')
             .upsert(supabaseData, { onConflict: 'device_id' })
             .select()
             .single();
+
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Supabase timeout')), 10000)
+        );
+
+        const result = await Promise.race([supabasePromise, timeoutPromise]);
 
         if (result.error) {
             console.error('[saveSettings] Supabase error:', result.error);
@@ -221,9 +265,14 @@ async function saveSettings() {
             setStorageItem(STORAGE_KEYS.USER_ID, returnedId);
             currentProfileId = returnedId;
 
-            // Update PowerSync with the id from Supabase
+            // Update PowerSync with the id from Supabase (with timeout)
             profile.id = returnedId;
-            await window.dataLayer.saveUserSettings(profile);
+            await loadWithTimeout(
+                () => window.dataLayer.saveUserSettings(profile),
+                'saveUserSettings (update ID)',
+                false,
+                3000
+            );
         }
 
         // Step 8: Success - clear scratch and mark clean
