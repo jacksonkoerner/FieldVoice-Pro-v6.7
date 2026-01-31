@@ -216,7 +216,13 @@ class SupabaseConnector {
         try {
             for (const op of transaction.crud) {
                 const table = op.table;
-                const record = { ...op.opData, id: op.id };
+                let record = { ...op.opData, id: op.id };
+
+                // Filter out fields that don't exist in Supabase schema
+                if (table === 'user_profiles') {
+                    // Remove legacy 'role' field - column doesn't exist in Supabase
+                    delete record.role;
+                }
 
                 switch (op.op) {
                     case 'PUT':
@@ -228,10 +234,12 @@ class SupabaseConnector {
                         break;
 
                     case 'PATCH':
-                        // Update in Supabase
+                        // Update in Supabase - use filtered data (without id)
+                        const updateData = { ...record };
+                        delete updateData.id;
                         const { error: patchError } = await this.supabaseClient
                             .from(table)
-                            .update(op.opData)
+                            .update(updateData)
                             .eq('id', op.id);
                         if (patchError) throw patchError;
                         break;
