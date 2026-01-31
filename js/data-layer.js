@@ -265,7 +265,7 @@
             id: s.id,
             deviceId: s.deviceId || s.device_id || '',
             fullName: s.fullName || s.full_name || '',
-            title: s.title || '',
+            title: s.title || s.role || '',  // Support legacy 'role' field
             company: s.company || '',
             email: s.email || '',
             phone: s.phone || ''
