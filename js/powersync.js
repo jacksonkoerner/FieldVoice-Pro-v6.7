@@ -1,6 +1,8 @@
 // FieldVoice Pro - PowerSync Integration
 // Provides offline-first sync with Supabase via PowerSync
 
+import { PowerSyncDatabase, Schema, Table, column } from '@powersync/web';
+
 // ============ POWERSYNC CREDENTIALS ============
 // NOTE: Development token expires every ~12 hours
 // Get a new token from: https://powersync.journeyapps.com/ → Your Instance → Connect
@@ -14,7 +16,145 @@ const POWERSYNC_DEV_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzI
 // Define all tables that sync with Supabase
 // This must match your Supabase schema and PowerSync sync rules
 
-let powerSyncSchema = null;
+const userProfiles = new Table({
+    name: 'user_profiles',
+    columns: [
+        column.text('id'),
+        column.text('full_name'),
+        column.text('email'),
+        column.text('phone'),
+        column.text('company'),
+        column.text('role'),
+        column.text('inspector_cert'),
+        column.text('preferences'), // JSON string
+        column.text('created_at'),
+        column.text('updated_at')
+    ]
+});
+
+const projects = new Table({
+    name: 'projects',
+    columns: [
+        column.text('id'),
+        column.text('user_id'),
+        column.text('name'),
+        column.text('project_number'),
+        column.text('location'),
+        column.text('client_name'),
+        column.text('start_date'),
+        column.text('status'),
+        column.text('logo_url'),
+        column.text('settings'), // JSON string
+        column.text('created_at'),
+        column.text('updated_at')
+    ]
+});
+
+const contractors = new Table({
+    name: 'contractors',
+    columns: [
+        column.text('id'),
+        column.text('project_id'),
+        column.text('name'),
+        column.text('trade'),
+        column.text('contact_name'),
+        column.text('contact_phone'),
+        column.text('contact_email'),
+        column.text('status'),
+        column.text('created_at'),
+        column.text('updated_at')
+    ]
+});
+
+const activeReports = new Table({
+    name: 'active_reports',
+    columns: [
+        column.text('id'),
+        column.text('user_id'),
+        column.text('project_id'),
+        column.text('report_date'),
+        column.text('status'),
+        column.text('capture_mode'),
+        column.text('weather_data'), // JSON string
+        column.text('entries'), // JSON string
+        column.text('overview'), // JSON string
+        column.text('created_at'),
+        column.text('updated_at')
+    ]
+});
+
+const aiRequests = new Table({
+    name: 'ai_requests',
+    columns: [
+        column.text('id'),
+        column.text('user_id'),
+        column.text('report_id'),
+        column.integer('entry_index'),
+        column.text('request_type'),
+        column.text('input_data'), // JSON string
+        column.text('status'),
+        column.text('created_at')
+    ]
+});
+
+const aiResponses = new Table({
+    name: 'ai_responses',
+    columns: [
+        column.text('id'),
+        column.text('request_id'),
+        column.text('response_data'), // JSON string
+        column.integer('tokens_used'),
+        column.text('created_at')
+    ]
+});
+
+const finalReports = new Table({
+    name: 'final_reports',
+    columns: [
+        column.text('id'),
+        column.text('user_id'),
+        column.text('project_id'),
+        column.text('report_date'),
+        column.text('project_name'),
+        column.text('project_number'),
+        column.text('weather_summary'),
+        column.text('entries'), // JSON string
+        column.text('overview'), // JSON string
+        column.text('pdf_url'),
+        column.text('submitted_at'),
+        column.text('created_at')
+    ]
+});
+
+const photos = new Table({
+    name: 'photos',
+    columns: [
+        column.text('id'),
+        column.text('user_id'),
+        column.text('report_id'),
+        column.integer('entry_index'),
+        column.text('storage_path'),
+        column.text('thumbnail_path'),
+        column.text('caption'),
+        column.real('gps_lat'),
+        column.real('gps_lng'),
+        column.text('taken_at'),
+        column.text('created_at')
+    ]
+});
+
+const powerSyncSchema = new Schema([
+    userProfiles,
+    projects,
+    contractors,
+    activeReports,
+    aiRequests,
+    aiResponses,
+    finalReports,
+    photos
+]);
+
+// ============ STATE ============
 let powerSyncDb = null;
 let powerSyncInitPromise = null;
 let syncStatus = {
@@ -23,148 +163,6 @@ let syncStatus = {
     lastSyncTime: null,
     error: null
 };
-
-// Schema definition using PowerSync SDK
-function createPowerSyncSchema() {
-    const { Schema, Table, Column, ColumnType } = PowerSync;
-
-    return new Schema([
-        // User Profiles
-        new Table({
-            name: 'user_profiles',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'full_name', type: ColumnType.TEXT }),
-                new Column({ name: 'email', type: ColumnType.TEXT }),
-                new Column({ name: 'phone', type: ColumnType.TEXT }),
-                new Column({ name: 'company', type: ColumnType.TEXT }),
-                new Column({ name: 'role', type: ColumnType.TEXT }),
-                new Column({ name: 'inspector_cert', type: ColumnType.TEXT }),
-                new Column({ name: 'preferences', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'created_at', type: ColumnType.TEXT }),
-                new Column({ name: 'updated_at', type: ColumnType.TEXT })
-            ]
-        }),
-
-        // Projects
-        new Table({
-            name: 'projects',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'user_id', type: ColumnType.TEXT }),
-                new Column({ name: 'name', type: ColumnType.TEXT }),
-                new Column({ name: 'project_number', type: ColumnType.TEXT }),
-                new Column({ name: 'location', type: ColumnType.TEXT }),
-                new Column({ name: 'client_name', type: ColumnType.TEXT }),
-                new Column({ name: 'start_date', type: ColumnType.TEXT }),
-                new Column({ name: 'status', type: ColumnType.TEXT }),
-                new Column({ name: 'logo_url', type: ColumnType.TEXT }),
-                new Column({ name: 'settings', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'created_at', type: ColumnType.TEXT }),
-                new Column({ name: 'updated_at', type: ColumnType.TEXT })
-            ]
-        }),
-
-        // Contractors
-        new Table({
-            name: 'contractors',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'project_id', type: ColumnType.TEXT }),
-                new Column({ name: 'name', type: ColumnType.TEXT }),
-                new Column({ name: 'trade', type: ColumnType.TEXT }),
-                new Column({ name: 'contact_name', type: ColumnType.TEXT }),
-                new Column({ name: 'contact_phone', type: ColumnType.TEXT }),
-                new Column({ name: 'contact_email', type: ColumnType.TEXT }),
-                new Column({ name: 'status', type: ColumnType.TEXT }),
-                new Column({ name: 'created_at', type: ColumnType.TEXT }),
-                new Column({ name: 'updated_at', type: ColumnType.TEXT })
-            ]
-        }),
-
-        // Active Reports (in-progress reports)
-        new Table({
-            name: 'active_reports',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'user_id', type: ColumnType.TEXT }),
-                new Column({ name: 'project_id', type: ColumnType.TEXT }),
-                new Column({ name: 'report_date', type: ColumnType.TEXT }),
-                new Column({ name: 'status', type: ColumnType.TEXT }),
-                new Column({ name: 'capture_mode', type: ColumnType.TEXT }),
-                new Column({ name: 'weather_data', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'entries', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'overview', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'created_at', type: ColumnType.TEXT }),
-                new Column({ name: 'updated_at', type: ColumnType.TEXT })
-            ]
-        }),
-
-        // AI Requests
-        new Table({
-            name: 'ai_requests',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'user_id', type: ColumnType.TEXT }),
-                new Column({ name: 'report_id', type: ColumnType.TEXT }),
-                new Column({ name: 'entry_index', type: ColumnType.INTEGER }),
-                new Column({ name: 'request_type', type: ColumnType.TEXT }),
-                new Column({ name: 'input_data', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'status', type: ColumnType.TEXT }),
-                new Column({ name: 'created_at', type: ColumnType.TEXT })
-            ]
-        }),
-
-        // AI Responses
-        new Table({
-            name: 'ai_responses',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'request_id', type: ColumnType.TEXT }),
-                new Column({ name: 'response_data', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'tokens_used', type: ColumnType.INTEGER }),
-                new Column({ name: 'created_at', type: ColumnType.TEXT })
-            ]
-        }),
-
-        // Final Reports (submitted/archived)
-        new Table({
-            name: 'final_reports',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'user_id', type: ColumnType.TEXT }),
-                new Column({ name: 'project_id', type: ColumnType.TEXT }),
-                new Column({ name: 'report_date', type: ColumnType.TEXT }),
-                new Column({ name: 'project_name', type: ColumnType.TEXT }),
-                new Column({ name: 'project_number', type: ColumnType.TEXT }),
-                new Column({ name: 'weather_summary', type: ColumnType.TEXT }),
-                new Column({ name: 'entries', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'overview', type: ColumnType.TEXT }), // JSON string
-                new Column({ name: 'pdf_url', type: ColumnType.TEXT }),
-                new Column({ name: 'submitted_at', type: ColumnType.TEXT }),
-                new Column({ name: 'created_at', type: ColumnType.TEXT })
-            ]
-        }),
-
-        // Photos
-        new Table({
-            name: 'photos',
-            columns: [
-                new Column({ name: 'id', type: ColumnType.TEXT }),
-                new Column({ name: 'user_id', type: ColumnType.TEXT }),
-                new Column({ name: 'report_id', type: ColumnType.TEXT }),
-                new Column({ name: 'entry_index', type: ColumnType.INTEGER }),
-                new Column({ name: 'storage_path', type: ColumnType.TEXT }),
-                new Column({ name: 'thumbnail_path', type: ColumnType.TEXT }),
-                new Column({ name: 'caption', type: ColumnType.TEXT }),
-                new Column({ name: 'gps_lat', type: ColumnType.REAL }),
-                new Column({ name: 'gps_lng', type: ColumnType.REAL }),
-                new Column({ name: 'taken_at', type: ColumnType.TEXT }),
-                new Column({ name: 'created_at', type: ColumnType.TEXT })
-            ]
-        })
-    ]);
-}
 
 // ============ SUPABASE CONNECTOR ============
 // Handles authentication and upload queue for PowerSync
@@ -232,7 +230,7 @@ class SupabaseConnector {
 }
 
 // ============ INITIALIZATION ============
-async function initPowerSync() {
+export async function initPowerSync() {
     // Return existing promise if already initializing
     if (powerSyncInitPromise) {
         return powerSyncInitPromise;
@@ -242,21 +240,12 @@ async function initPowerSync() {
         try {
             console.log('[PowerSync] Initializing...');
 
-            // Check if PowerSync SDK is loaded
-            if (typeof PowerSync === 'undefined') {
-                throw new Error('PowerSync SDK not loaded. Make sure to include the script tag.');
-            }
-
-            // Check if Supabase client exists
-            if (typeof supabaseClient === 'undefined') {
+            // Check if Supabase client exists (from config.js via window)
+            if (typeof window.supabaseClient === 'undefined') {
                 throw new Error('Supabase client not initialized. Make sure config.js is loaded first.');
             }
 
-            // Create schema
-            powerSyncSchema = createPowerSyncSchema();
-
             // Create PowerSync database
-            const { PowerSyncDatabase } = PowerSync;
             powerSyncDb = new PowerSyncDatabase({
                 schema: powerSyncSchema,
                 database: {
@@ -265,7 +254,7 @@ async function initPowerSync() {
             });
 
             // Create connector
-            const connector = new SupabaseConnector(supabaseClient);
+            const connector = new SupabaseConnector(window.supabaseClient);
 
             // Connect to PowerSync service
             await powerSyncDb.connect(connector);
@@ -307,7 +296,7 @@ async function initPowerSync() {
 // ============ HELPER FUNCTIONS ============
 
 // Get the PowerSync database instance
-function getPowerSync() {
+export function getPowerSync() {
     if (!powerSyncDb) {
         console.warn('[PowerSync] Database not initialized. Call initPowerSync() first.');
         return null;
@@ -316,17 +305,17 @@ function getPowerSync() {
 }
 
 // Get current sync status
-function getSyncStatus() {
+export function getSyncStatus() {
     return { ...syncStatus };
 }
 
 // Check if PowerSync is ready
-function isPowerSyncReady() {
+export function isPowerSyncReady() {
     return powerSyncDb !== null && syncStatus.connected;
 }
 
 // Wait for PowerSync to be ready
-async function waitForPowerSync() {
+export async function waitForPowerSync() {
     if (powerSyncDb && syncStatus.connected) {
         return powerSyncDb;
     }
@@ -336,7 +325,7 @@ async function waitForPowerSync() {
 // ============ QUERY HELPERS ============
 
 // Get all records from a table
-async function psGetAll(tableName, options = {}) {
+export async function psGetAll(tableName, options = {}) {
     const db = await waitForPowerSync();
     let query = `SELECT * FROM ${tableName}`;
     const params = [];
@@ -366,14 +355,14 @@ async function psGetAll(tableName, options = {}) {
 }
 
 // Get a single record by ID
-async function psGet(tableName, id) {
+export async function psGet(tableName, id) {
     const db = await waitForPowerSync();
     const result = await db.get(`SELECT * FROM ${tableName} WHERE id = ?`, [id]);
     return result;
 }
 
 // Insert or update a record
-async function psSave(tableName, record) {
+export async function psSave(tableName, record) {
     const db = await waitForPowerSync();
 
     // Ensure record has an ID
@@ -400,25 +389,25 @@ async function psSave(tableName, record) {
 }
 
 // Delete a record by ID
-async function psDelete(tableName, id) {
+export async function psDelete(tableName, id) {
     const db = await waitForPowerSync();
     await db.execute(`DELETE FROM ${tableName} WHERE id = ?`, [id]);
 }
 
 // Execute a custom query
-async function psQuery(sql, params = []) {
+export async function psQuery(sql, params = []) {
     const db = await waitForPowerSync();
     return db.getAll(sql, params);
 }
 
 // Execute a custom command (INSERT, UPDATE, DELETE)
-async function psExecute(sql, params = []) {
+export async function psExecute(sql, params = []) {
     const db = await waitForPowerSync();
     return db.execute(sql, params);
 }
 
 // ============ CONNECTION TEST ============
-async function testPowerSyncConnection() {
+export async function testPowerSyncConnection() {
     try {
         console.log('[PowerSync] Running connection test...');
 
@@ -438,7 +427,8 @@ async function testPowerSyncConnection() {
     }
 }
 
-// ============ EXPOSE TO WINDOW ============
+// ============ EXPOSE TO WINDOW FOR COMPATIBILITY ============
+// This allows existing code that uses window.initPowerSync etc. to keep working
 window.PowerSyncClient = {
     init: initPowerSync,
     getDb: getPowerSync,
