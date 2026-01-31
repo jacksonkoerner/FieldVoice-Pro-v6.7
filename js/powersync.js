@@ -184,6 +184,7 @@ const powerSyncSchema = new Schema({
 // ============ STATE ============
 let powerSyncDb = null;
 let powerSyncInitPromise = null;
+let isConnecting = false; // Track if we're in the middle of connecting
 let syncStatus = {
     connected: false,
     syncing: false,
@@ -287,6 +288,8 @@ export async function initPowerSync() {
                 throw new Error('Supabase client not initialized. Make sure config.js is loaded first.');
             }
 
+            console.log('[PowerSync] Creating database...');
+
             // Create PowerSync database
             powerSyncDb = new PowerSyncDatabase({
                 schema: powerSyncSchema,
@@ -295,11 +298,30 @@ export async function initPowerSync() {
                 }
             });
 
+            console.log('[PowerSync] Database created, preparing to connect...');
+
             // Create connector
             const connector = new SupabaseConnector(window.supabaseClient);
 
+            // Mark that we're attempting to connect
+            isConnecting = true;
+            console.log('[PowerSync] Connecting to PowerSync service...');
+
             // Connect to PowerSync service
-            await powerSyncDb.connect(connector);
+            try {
+                await powerSyncDb.connect(connector);
+                console.log('[PowerSync] connect() completed successfully');
+            } catch (connectError) {
+                console.error('[PowerSync] connect() failed:', connectError);
+                isConnecting = false;
+                // Don't rethrow - we can still use local-only mode
+                console.log('[PowerSync] Falling back to local-only mode after connect failure');
+                syncStatus.connected = false;
+                syncStatus.error = connectError.message;
+                return powerSyncDb; // Return db for local queries
+            }
+
+            isConnecting = false;
 
             // Update sync status
             syncStatus.connected = true;
@@ -326,6 +348,7 @@ export async function initPowerSync() {
 
         } catch (error) {
             console.error('[PowerSync] Initialization failed:', error);
+            isConnecting = false;
             syncStatus.connected = false;
             syncStatus.error = error.message;
             throw error;
@@ -371,13 +394,39 @@ export async function waitForPowerSync(timeoutMs = POWERSYNC_TIMEOUT_MS) {
         return powerSyncDb;
     }
 
-    // If database exists but not connected, return it (can still do local queries)
-    if (powerSyncDb) {
-        console.warn('[PowerSync] Database exists but not connected, proceeding with local-only mode');
+    // If initialization is in progress, wait for it to complete
+    if (powerSyncInitPromise) {
+        console.log('[PowerSync] waitForPowerSync: initialization in progress, waiting...');
+        try {
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('PowerSync initialization timeout')), timeoutMs)
+            );
+
+            const result = await Promise.race([
+                powerSyncInitPromise,
+                timeoutPromise
+            ]);
+
+            return result;
+        } catch (error) {
+            console.error('[PowerSync] waitForPowerSync: wait failed:', error.message);
+            // Return existing db if available (local-only mode), otherwise null
+            if (powerSyncDb) {
+                console.warn('[PowerSync] Using database in local-only mode after timeout');
+            }
+            return powerSyncDb || null;
+        }
+    }
+
+    // If database exists but not connected and no init in progress,
+    // this means init completed but connect failed - use local-only mode
+    if (powerSyncDb && !isConnecting) {
+        console.warn('[PowerSync] Database exists but not connected, using local-only mode');
         return powerSyncDb;
     }
 
-    // Try to initialize with timeout
+    // No database and no init in progress - start initialization
+    console.log('[PowerSync] waitForPowerSync: starting new initialization...');
     try {
         const timeoutPromise = new Promise((_, reject) =>
             setTimeout(() => reject(new Error('PowerSync initialization timeout')), timeoutMs)
