@@ -348,7 +348,43 @@ async function saveProject() {
         };
 
         await window.PowerSyncClient.save('projects', record);
-        console.log('[saveProject] Saved to PowerSync:', currentProject.id);
+        console.log('[saveProject] Saved project to PowerSync:', currentProject.id);
+
+        // Save contractors to PowerSync
+        // First, get existing contractors for this project to handle deletions
+        const existingContractors = await window.PowerSyncClient.getAll('contractors', {
+            where: { project_id: currentProject.id }
+        });
+        const existingIds = new Set(existingContractors.map(c => c.id));
+        const currentIds = new Set((currentProject.contractors || []).map(c => c.id));
+
+        // Delete removed contractors
+        for (const existing of existingContractors) {
+            if (!currentIds.has(existing.id)) {
+                await window.PowerSyncClient.delete('contractors', existing.id);
+                console.log('[saveProject] Deleted contractor:', existing.id);
+            }
+        }
+
+        // Upsert current contractors
+        for (const contractor of (currentProject.contractors || [])) {
+            const contractorRecord = {
+                id: contractor.id,
+                project_id: currentProject.id,
+                name: contractor.name || '',
+                company: contractor.company || '',
+                abbreviation: contractor.abbreviation || '',
+                type: contractor.type || 'sub',
+                trades: contractor.trades || '',
+                status: contractor.status || 'active',
+                added_date: contractor.addedDate || null,
+                removed_date: contractor.removedDate || null,
+                created_at: contractor.created_at || new Date().toISOString()
+            };
+            await window.PowerSyncClient.save('contractors', contractorRecord);
+        }
+        console.log('[saveProject] Saved', (currentProject.contractors || []).length, 'contractors to PowerSync');
+
         clearDirty();
         showToast('Project saved successfully');
     } catch (error) {
