@@ -9,14 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@powersync/web": "^1.32.0",
     "@journeyapps/wa-sqlite": "^1.0.0",
+    "@powersync/web": "^1.32.0",
     "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "sharp": "^0.34.5",
     "vite": "^5.0.0",
-    "vite-plugin-wasm": "^3.3.0",
-    "vite-plugin-top-level-await": "^1.4.0"
+    "vite-plugin-static-copy": "^3.2.0",
+    "vite-plugin-top-level-await": "^1.4.0",
+    "vite-plugin-wasm": "^3.3.0"
   }
 }

@@ -691,14 +691,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ============ ONE-TIME MIGRATION: Clear stale IndexedDB projects (v1.13.0) ============
-    // This fixes mobile PWA showing duplicate/stale projects from before user_id filtering
+    // LEGACY: This migration clears old IndexedDB project data (now using PowerSync)
     const MIGRATION_KEY = 'fvp_migration_v113_idb_clear';
     if (!localStorage.getItem(MIGRATION_KEY)) {
         console.log('[MIGRATION v1.13.0] Clearing stale IndexedDB projects...');
         try {
-            await window.idb.clearStore('projects');
+            if (window.idb && typeof window.idb.clearStore === 'function') {
+                await window.idb.clearStore('projects');
+                console.log('[MIGRATION v1.13.0] IndexedDB projects cleared successfully');
+            } else {
+                console.log('[MIGRATION v1.13.0] IndexedDB not initialized, skipping clear');
+            }
             localStorage.setItem(MIGRATION_KEY, new Date().toISOString());
-            console.log('[MIGRATION v1.13.0] IndexedDB projects cleared successfully');
         } catch (migrationErr) {
             console.warn('[MIGRATION v1.13.0] Failed to clear IndexedDB:', migrationErr);
             // Still set the flag to avoid retrying on every load
@@ -710,7 +714,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Initialize sync manager
         initSyncManager();
 
-        // Load projects from IndexedDB first
+        // Load projects from PowerSync (auto-syncs with Supabase)
         let projects = await window.dataLayer.loadProjects();
 
         // PowerSync auto-syncs - no manual refresh needed

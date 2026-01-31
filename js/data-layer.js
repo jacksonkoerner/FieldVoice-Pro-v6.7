@@ -8,7 +8,7 @@
  * - PowerSync: All structured data (projects, contractors, reports, user profiles)
  *              Auto-syncs with Supabase, works offline
  * - localStorage: UI state only (active_project_id, device_id, drafts)
- * - IndexedDB: Photo blobs only (temporary until uploaded to Supabase Storage)
+ * - IndexedDB (via idb): Photo blobs only (temporary until uploaded to Supabase Storage)
  *
  * Pattern: PowerSync-first (handles sync automatically)
  */
@@ -371,71 +371,118 @@
     }
 
     // ========================================
-    // AI RESPONSE CACHE (localStorage — temporary)
+    // AI RESPONSE CACHE (PowerSync — auto-syncs with Supabase)
     // ========================================
 
     /**
-     * Cache AI response locally
+     * Cache AI response to PowerSync (auto-syncs with Supabase)
+     * @param {string} reportId - The active_report_id
+     * @param {Object} response - The AI response payload
      */
-    function cacheAIResponse(reportId, response) {
-        const cache = getStorageItem('fvp_ai_cache') || {};
-        cache[reportId] = {
-            response,
-            cachedAt: new Date().toISOString()
-        };
-        setStorageItem('fvp_ai_cache', cache);
-        console.log('[DATA] AI response cached:', reportId);
+    async function cacheAIResponse(reportId, response) {
+        try {
+            const record = {
+                id: crypto.randomUUID(),
+                active_report_id: reportId,
+                generated_content: typeof response === 'string' ? response : JSON.stringify(response),
+                raw_response: JSON.stringify(response),
+                created_at: new Date().toISOString()
+            };
+
+            await window.PowerSyncClient.save('ai_responses', record);
+            console.log('[DATA] AI response cached to PowerSync:', reportId);
+        } catch (e) {
+            console.error('[DATA] Failed to cache AI response:', e);
+            // Fallback to localStorage for resilience
+            const cache = getStorageItem('fvp_ai_cache') || {};
+            cache[reportId] = { response, cachedAt: new Date().toISOString() };
+            setStorageItem('fvp_ai_cache', cache);
+        }
     }
 
     /**
-     * Get cached AI response
+     * Get cached AI response from PowerSync
+     * @param {string} reportId - The active_report_id
+     * @returns {Object|null} The AI response or null
      */
-    function getCachedAIResponse(reportId) {
-        const cache = getStorageItem('fvp_ai_cache') || {};
-        return cache[reportId]?.response || null;
+    async function getCachedAIResponse(reportId) {
+        try {
+            // Query PowerSync for the most recent AI response for this report
+            const responses = await window.PowerSyncClient.getAll('ai_responses', {
+                where: { active_report_id: reportId },
+                orderBy: 'created_at',
+                orderDesc: true,
+                limit: 1
+            });
+
+            if (responses && responses.length > 0) {
+                const rawResponse = responses[0].raw_response;
+                try {
+                    return JSON.parse(rawResponse);
+                } catch {
+                    return rawResponse;
+                }
+            }
+            return null;
+        } catch (e) {
+            console.warn('[DATA] Failed to get AI response from PowerSync:', e);
+            // Fallback to localStorage
+            const cache = getStorageItem('fvp_ai_cache') || {};
+            return cache[reportId]?.response || null;
+        }
     }
 
     /**
      * Clear AI response cache for a report
+     * Note: PowerSync entries persist (for history); this clears localStorage fallback
+     * @param {string} reportId - The active_report_id
      */
     function clearAIResponseCache(reportId) {
+        // Clear localStorage fallback
         const cache = getStorageItem('fvp_ai_cache') || {};
         delete cache[reportId];
         setStorageItem('fvp_ai_cache', cache);
+        // Note: PowerSync ai_responses are kept for audit trail
+        console.log('[DATA] AI response cache cleared for:', reportId);
     }
 
     // ========================================
-    // ARCHIVES (last 3 in IndexedDB, rest from Supabase)
+    // ARCHIVES (PowerSync — auto-syncs with Supabase)
     // ========================================
 
     /**
-     * Load archived reports
+     * Load archived reports from PowerSync (auto-syncs with Supabase)
+     * PowerSync handles offline caching automatically
      */
     async function loadArchivedReports(limit = 20) {
-        if (!navigator.onLine) {
-            console.log('[DATA] Offline, cannot load archives');
-            return [];
-        }
-
         try {
             const userId = getStorageItem(STORAGE_KEYS.USER_ID);
 
-            let query = supabaseClient
-                .from('final_reports')
-                .select('*, projects(id, project_name)')
-                .eq('status', 'submitted')
-                .order('created_at', { ascending: false })
-                .limit(limit);
+            // Query PowerSync for final_reports
+            const whereClause = userId ? { submitted_by: userId } : {};
+            const reports = await window.PowerSyncClient.getAll('final_reports', {
+                where: whereClause,
+                orderBy: 'submitted_at',
+                orderDesc: true,
+                limit: limit
+            });
 
-            if (userId) {
-                query = query.eq('user_id', userId);
-            }
+            // Query projects for names (PowerSync doesn't support JOINs)
+            const projects = await window.PowerSyncClient.getAll('projects');
+            const projectMap = {};
+            projects.forEach(p => { projectMap[p.id] = p; });
 
-            const { data, error } = await query;
+            // Attach project info to each report
+            const enriched = reports.map(r => ({
+                ...r,
+                projects: projectMap[r.project_id] ? {
+                    id: projectMap[r.project_id].id,
+                    project_name: projectMap[r.project_id].project_name
+                } : null
+            }));
 
-            if (error) throw error;
-
-            return data || [];
+            console.log('[DATA] Loaded archives from PowerSync:', enriched.length);
+            return enriched;
         } catch (e) {
             console.error('[DATA] Failed to load archives:', e);
             return [];
