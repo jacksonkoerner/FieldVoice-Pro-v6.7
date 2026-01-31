@@ -395,12 +395,20 @@ export async function psSave(tableName, record) {
         record.id = crypto.randomUUID();
     }
 
-    // Add timestamps
+    // Add timestamps - only for tables that have these columns
     const now = new Date().toISOString();
-    if (!record.created_at) {
+
+    // Tables that have created_at column
+    const tablesWithCreatedAt = ['user_profiles', 'projects', 'contractors', 'active_reports', 'ai_requests', 'ai_responses', 'final_reports'];
+    if (tablesWithCreatedAt.includes(tableName) && !record.created_at) {
         record.created_at = now;
     }
-    record.updated_at = now;
+
+    // Tables that have updated_at column (NOT contractors, active_reports, ai_requests, ai_responses)
+    const tablesWithUpdatedAt = ['user_profiles', 'projects', 'final_reports'];
+    if (tablesWithUpdatedAt.includes(tableName)) {
+        record.updated_at = now;
+    }
 
     // Build upsert query
     const columns = Object.keys(record);
