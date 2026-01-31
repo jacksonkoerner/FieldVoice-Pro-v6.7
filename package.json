@@ -1,5 +1,22 @@
 {
+  "name": "fieldvoice-pro-v67",
+  "private": true,
+  "version": "6.7.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@powersync/web": "^1.32.0",
+    "@journeyapps/wa-sqlite": "^1.0.0",
+    "@supabase/supabase-js": "^2.39.0"
+  },
   "devDependencies": {
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "vite": "^5.0.0",
+    "vite-plugin-wasm": "^3.3.0",
+    "vite-plugin-top-level-await": "^1.4.0"
   }
 }
