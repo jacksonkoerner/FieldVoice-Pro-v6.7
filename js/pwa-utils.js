@@ -153,3 +153,7 @@ function showUpdateBanner() {
 
     document.body.insertBefore(banner, document.body.firstChild);
 }
+
+
+// Expose to window for inline scripts
+window.initPWA = initPWA;
