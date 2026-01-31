@@ -613,7 +613,7 @@ function fromSupabaseUserProfile(row) {
         id: row.id,
         deviceId: row.device_id || null,
         fullName: row.full_name || '',
-        title: row.title || row.role || '',  // Support legacy 'role' field
+        title: row.title || '',
         company: row.company || '',
         email: row.email || '',
         phone: row.phone || '',

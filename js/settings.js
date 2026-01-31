@@ -283,7 +283,7 @@ async function refreshFromCloud() {
         // Populate form with cloud data
         currentProfileId = data.id || null;
         document.getElementById('inspectorName').value = data.full_name || '';
-        document.getElementById('title').value = data.title || data.role || '';  // Support legacy 'role' field
+        document.getElementById('title').value = data.title || '';
         document.getElementById('company').value = data.company || '';
         document.getElementById('email').value = data.email || '';
         document.getElementById('phone').value = data.phone || '';
