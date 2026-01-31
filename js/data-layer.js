@@ -214,20 +214,34 @@
     }
 
     /**
-     * Save user settings to IndexedDB
+     * Save user settings to PowerSync (auto-syncs with Supabase)
+     * PowerSync handles offline queue automatically
      * @param {Object} settings - User settings object
      * @returns {Promise<boolean>} Success status
      */
     async function saveUserSettings(settings) {
         const normalized = normalizeUserSettings(settings);
-        if (!normalized || !normalized.deviceId) {
-            console.error('[DATA] Cannot save user settings: missing deviceId');
+        if (!normalized) {
+            console.error('[DATA] Cannot save user settings: invalid settings');
             return false;
         }
 
         try {
-            await window.idb.saveUserProfile(normalized);
-            console.log('[DATA] User settings saved to IndexedDB');
+            // Convert to snake_case for PowerSync/Supabase
+            const record = {
+                id: normalized.id || crypto.randomUUID(),
+                full_name: normalized.fullName || '',
+                email: normalized.email || '',
+                phone: normalized.phone || '',
+                company: normalized.company || '',
+                role: normalized.title || '', // Map title to role
+                preferences: JSON.stringify({
+                    deviceId: normalized.deviceId
+                })
+            };
+
+            await window.PowerSyncClient.save('user_profiles', record);
+            console.log('[DATA] User settings saved to PowerSync');
             return true;
         } catch (e) {
             console.error('[DATA] Failed to save user settings:', e);
@@ -422,41 +436,46 @@
     }
 
     // ========================================
-    // SUBMIT (Supabase — final destination)
+    // SUBMIT (PowerSync — syncs to Supabase)
     // ========================================
 
     /**
-     * Submit final report to Supabase
+     * Submit final report to PowerSync (auto-syncs with Supabase)
+     * PowerSync handles offline queue — works offline now
+     * @param {Object} finalData - Report data including reportId and sections
+     * @returns {Promise<boolean>} Success status
      */
     async function submitFinalReport(finalData) {
-        if (!navigator.onLine) {
-            throw new Error('Cannot submit offline — internet required');
-        }
-
-        const { reportId, sections } = finalData;
+        const {
+            reportId,
+            sections,
+            projectId,
+            projectName,
+            projectNumber,
+            reportDate,
+            weatherSummary,
+            overview
+        } = finalData;
 
         try {
-            for (const section of sections) {
-                await supabaseClient
-                    .from('final_report_sections')
-                    .upsert({
-                        report_id: reportId,
-                        section_key: section.key,
-                        section_title: section.title,
-                        content: section.content,
-                        order: section.order
-                    }, { onConflict: 'report_id,section_key' });
-            }
+            const userId = getStorageItem(STORAGE_KEYS.USER_ID);
 
-            await supabaseClient
-                .from('reports')
-                .update({
-                    status: 'submitted',
-                    submitted_at: new Date().toISOString()
-                })
-                .eq('id', reportId);
+            // Build final report record for PowerSync
+            const record = {
+                id: reportId || crypto.randomUUID(),
+                user_id: userId || '',
+                project_id: projectId || '',
+                report_date: reportDate || new Date().toISOString().split('T')[0],
+                project_name: projectName || '',
+                project_number: projectNumber || '',
+                weather_summary: weatherSummary || '',
+                entries: JSON.stringify(sections || []),
+                overview: JSON.stringify(overview || {}),
+                submitted_at: new Date().toISOString()
+            };
 
-            console.log('[DATA] Final report submitted:', reportId);
+            await window.PowerSyncClient.save('final_reports', record);
+            console.log('[DATA] Final report submitted to PowerSync:', record.id);
             return true;
         } catch (e) {
             console.error('[DATA] Submit failed:', e);
