@@ -1,15 +1,16 @@
 /**
- * FieldVoice Pro v6.6 — Data Layer
+ * FieldVoice Pro v6.7 — Data Layer
  *
  * Single source of truth for all data operations.
  * All pages import from here instead of implementing their own loading logic.
  *
- * Storage Strategy:
- * - localStorage: Small flags only (active_project_id, device_id, user_id, permissions)
- * - IndexedDB: All cached data (projects, reports, photos, userProfile)
- * - Supabase: Source of truth, sync target
+ * Storage Strategy (Post-PowerSync Migration):
+ * - PowerSync: All structured data (projects, contractors, reports, user profiles)
+ *              Auto-syncs with Supabase, works offline
+ * - localStorage: UI state only (active_project_id, device_id, drafts)
+ * - IndexedDB: Photo blobs only (temporary until uploaded to Supabase Storage)
  *
- * Pattern: IndexedDB-first, Supabase-fallback, cache on fetch
+ * Pattern: PowerSync-first (handles sync automatically)
  */
 
 (function() {
@@ -20,105 +21,60 @@
     // ========================================
 
     /**
-     * Load all projects from IndexedDB only (no Supabase fallback)
-     * Use refreshProjectsFromCloud() to explicitly sync from Supabase
+     * Load all projects from PowerSync (auto-syncs with Supabase)
+     * PowerSync handles offline caching automatically - no manual refresh needed
      * @returns {Promise<Array>} Array of project objects (JS format, camelCase)
      */
     async function loadProjects() {
         const userId = getStorageItem(STORAGE_KEYS.USER_ID);
 
-        // Load from IndexedDB only - NO Supabase fallback
         try {
-            const allLocalProjects = await window.idb.getAllProjects();
-            const localProjects = userId
-                ? allLocalProjects.filter(p => (p.userId || p.user_id) === userId)
-                : allLocalProjects;
+            // Query PowerSync for projects
+            const whereClause = userId ? { user_id: userId } : {};
+            const projects = await window.PowerSyncClient.getAll('projects', {
+                where: whereClause,
+                orderBy: 'name'
+            });
 
-            if (localProjects && localProjects.length > 0) {
-                console.log('[DATA] Loaded projects from IndexedDB:', localProjects.length);
-                // Convert to JS format in case raw Supabase data was cached
-                const normalized = localProjects.map(p => normalizeProject(p));
+            // Query contractors separately (PowerSync doesn't support JOINs)
+            const contractors = await window.PowerSyncClient.getAll('contractors');
 
-                // Also cache to localStorage for report-rules.js
-                const projectsMap = {};
-                normalized.forEach(p => { projectsMap[p.id] = p; });
-                setStorageItem(STORAGE_KEYS.PROJECTS, projectsMap);
-
-                return normalized;
-            }
-        } catch (e) {
-            console.warn('[DATA] IndexedDB read failed:', e);
-        }
-
-        // Return empty array if IndexedDB is empty - caller should use refreshProjectsFromCloud()
-        console.log('[DATA] No projects in IndexedDB');
-        return [];
-    }
-
-    /**
-     * Refresh projects from Supabase (explicit cloud sync with contractors)
-     * Call this when user taps Refresh or on initial load when IndexedDB is empty
-     * @returns {Promise<Array>} Array of project objects with contractors
-     */
-    async function refreshProjectsFromCloud() {
-        if (!navigator.onLine) {
-            console.log('[DATA] Offline, cannot refresh from cloud');
-            return [];
-        }
-
-        const userId = getStorageItem(STORAGE_KEYS.USER_ID);
-
-        try {
-            // Fetch projects WITH contractors using Supabase join
-            let query = supabaseClient
-                .from('projects')
-                .select(`
-                    *,
-                    contractors (*)
-                `)
-                .order('project_name');
-
-            if (userId) {
-                query = query.eq('user_id', userId);
-            }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            // Convert to JS format with contractors
-            const projects = (data || []).map(row => {
-                const project = fromSupabaseProject(row);
-                // Include contractors from the join
-                project.contractors = (row.contractors || []).map(c => fromSupabaseContractor(c));
+            // Normalize and attach contractors to each project
+            const normalized = projects.map(p => {
+                const project = normalizeProject(p);
+                project.contractors = contractors
+                    .filter(c => c.project_id === p.id)
+                    .map(c => normalizeContractor(c));
                 return project;
             });
 
-            // Cache to IndexedDB (with contractors)
-            for (const project of projects) {
-                try {
-                    await window.idb.saveProject(project);
-                } catch (e) {
-                    console.warn('[DATA] Failed to cache project:', e);
-                }
-            }
-
-            // Also cache to localStorage for report-rules.js
+            // Cache to localStorage for report-rules.js compatibility
             const projectsMap = {};
-            projects.forEach(p => { projectsMap[p.id] = p; });
+            normalized.forEach(p => { projectsMap[p.id] = p; });
             setStorageItem(STORAGE_KEYS.PROJECTS, projectsMap);
 
-            console.log('[DATA] Refreshed projects from Supabase:', projects.length);
-            return projects;
+            console.log('[DATA] Loaded projects from PowerSync:', normalized.length);
+            return normalized;
         } catch (e) {
-            console.error('[DATA] Supabase fetch failed:', e);
-            throw e;
+            console.error('[DATA] PowerSync query failed:', e);
+            return [];
         }
     }
 
     /**
-     * Load active project with contractors from IndexedDB only (no Supabase fallback)
-     * Use refreshProjectsFromCloud() to sync from Supabase first if IndexedDB is empty
+     * @deprecated PowerSync handles sync automatically. Just call loadProjects().
+     * Kept for backwards compatibility with existing callers.
+     * @returns {Promise<Array>} Array of project objects with contractors
+     */
+    async function refreshProjectsFromCloud() {
+        console.log('[DATA] refreshProjectsFromCloud() deprecated - PowerSync syncs automatically');
+        // Just return loadProjects() - PowerSync already has the latest data
+        return loadProjects();
+    }
+
+    /**
+     * Load active project with contractors from PowerSync
+     * PowerSync handles offline caching automatically
      * @returns {Promise<Object|null>} Project object with contractors, or null
      */
     async function loadActiveProject() {
@@ -130,23 +86,36 @@
 
         const userId = getStorageItem(STORAGE_KEYS.USER_ID);
 
-        // Load from IndexedDB only - NO Supabase fallback
         try {
-            const localProject = await window.idb.getProject(activeId);
-            if (localProject && (!userId || (localProject.userId || localProject.user_id) === userId)) {
-                console.log('[DATA] Loaded active project from IndexedDB:', activeId);
-                const project = normalizeProject(localProject);
-                // Ensure contractors array exists and is normalized
-                project.contractors = (localProject.contractors || []).map(c => normalizeContractor(c));
-                return project;
-            }
-        } catch (e) {
-            console.warn('[DATA] IndexedDB read failed:', e);
-        }
+            // Query PowerSync for the project by ID
+            const projectRow = await window.PowerSyncClient.get('projects', activeId);
 
-        // Return null if not in IndexedDB - caller should use refreshProjectsFromCloud()
-        console.log('[DATA] Active project not found in IndexedDB:', activeId);
-        return null;
+            if (!projectRow) {
+                console.log('[DATA] Active project not found in PowerSync:', activeId);
+                return null;
+            }
+
+            // Verify user ownership if userId is set
+            if (userId && projectRow.user_id !== userId) {
+                console.log('[DATA] Active project belongs to different user');
+                return null;
+            }
+
+            // Query contractors for this project
+            const contractors = await window.PowerSyncClient.getAll('contractors', {
+                where: { project_id: activeId }
+            });
+
+            // Normalize project and attach contractors
+            const project = normalizeProject(projectRow);
+            project.contractors = contractors.map(c => normalizeContractor(c));
+
+            console.log('[DATA] Loaded active project from PowerSync:', activeId);
+            return project;
+        } catch (e) {
+            console.error('[DATA] PowerSync query failed:', e);
+            return null;
+        }
     }
 
     /**
@@ -212,7 +181,8 @@
     // ========================================
 
     /**
-     * Load user settings (IndexedDB-first, Supabase-fallback)
+     * Load user settings from PowerSync (auto-syncs with Supabase)
+     * PowerSync handles offline caching automatically
      * @returns {Promise<Object|null>} User settings object or null
      */
     async function loadUserSettings() {
@@ -222,54 +192,23 @@
             return null;
         }
 
-        // 1. Try IndexedDB first
         try {
-            const localSettings = await window.idb.getUserProfile(deviceId);
-            if (localSettings) {
-                console.log('[DATA] Loaded user settings from IndexedDB');
-                return normalizeUserSettings(localSettings);
-            }
-        } catch (e) {
-            console.warn('[DATA] IndexedDB read failed:', e);
-        }
+            // Query PowerSync for user profile by device_id
+            const profiles = await window.PowerSyncClient.getAll('user_profiles', {
+                where: { device_id: deviceId },
+                limit: 1
+            });
 
-        // 2. Check if offline
-        if (!navigator.onLine) {
-            console.log('[DATA] Offline, no cached user settings');
-            return null;
-        }
-
-        // 3. Fetch from Supabase
-        try {
-            const { data, error } = await supabaseClient
-                .from('user_profiles')
-                .select('*')
-                .eq('device_id', deviceId)
-                .maybeSingle();
-
-            if (error) {
-                console.warn('[DATA] Supabase user settings error:', error);
-                return null;
-            }
-
-            if (!data) {
+            if (!profiles || profiles.length === 0) {
                 console.log('[DATA] No user profile found for device:', deviceId);
                 return null;
             }
 
-            // 4. Convert to JS format and cache to IndexedDB
-            const settings = normalizeUserSettings(data);
-            try {
-                await window.idb.saveUserProfile(settings);
-                console.log('[DATA] Cached user settings to IndexedDB');
-            } catch (e) {
-                console.warn('[DATA] Failed to cache user settings:', e);
-            }
-
-            console.log('[DATA] Loaded user settings from Supabase');
+            const settings = normalizeUserSettings(profiles[0]);
+            console.log('[DATA] Loaded user settings from PowerSync');
             return settings;
         } catch (e) {
-            console.error('[DATA] Failed to load user settings:', e);
+            console.error('[DATA] PowerSync query failed:', e);
             return null;
         }
     }
