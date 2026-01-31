@@ -19,7 +19,9 @@
     <meta name="apple-mobile-web-app-title" content="FieldVoice">
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/@powersync/web@latest/dist/umd/powersync.umd.js"></script>
     <script src="./js/config.js"></script>
+    <script src="./js/powersync.js"></script>
     <script src="./js/storage-keys.js"></script>
     <script src="./js/report-rules.js"></script>
     <script src="./js/supabase-utils.js"></script>
@@ -127,7 +129,11 @@
                     </h1>
                     <p id="currentDate" class="text-xs text-slate-400 mt-1"></p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 items-center">
+                    <!-- PowerSync Status Indicator -->
+                    <div id="syncStatusIndicator" class="w-10 h-10 flex items-center justify-center text-slate-500" title="Sync Status">
+                        <i class="fas fa-circle-notch fa-spin text-xs"></i>
+                    </div>
                     <button onclick="openProjectConfig()" class="w-10 h-10 border border-slate-600 flex items-center justify-center text-slate-400 hover:bg-slate-800 hover:text-white transition-colors" title="Manage Projects">
                         <i class="fas fa-folder-open"></i>
                     </button>
@@ -273,6 +279,41 @@
     <!-- Initialize PWA features -->
     <script>
         initPWA({ onOnline: updateDraftsSection });
+
+        // Update sync status indicator
+        function updateSyncStatusUI() {
+            const indicator = document.getElementById('syncStatusIndicator');
+            if (!indicator) return;
+
+            const status = getSyncStatus();
+
+            if (status.syncing) {
+                indicator.innerHTML = '<i class="fas fa-sync-alt fa-spin text-xs text-dot-yellow"></i>';
+                indicator.title = 'Syncing...';
+            } else if (status.connected) {
+                indicator.innerHTML = '<i class="fas fa-check-circle text-xs text-safety-green"></i>';
+                indicator.title = 'Synced';
+            } else if (status.error) {
+                indicator.innerHTML = '<i class="fas fa-exclamation-circle text-xs text-red-500"></i>';
+                indicator.title = 'Sync error: ' + status.error;
+            } else {
+                indicator.innerHTML = '<i class="fas fa-circle text-xs text-slate-400"></i>';
+                indicator.title = 'Not connected';
+            }
+        }
+
+        // Initialize PowerSync on page load
+        (async function() {
+            try {
+                await initPowerSync();
+                console.log('[Index] PowerSync initialized successfully');
+                updateSyncStatusUI();
+            } catch (error) {
+                console.error('[Index] PowerSync initialization failed:', error);
+                updateSyncStatusUI();
+                // App continues to work - PowerSync will retry on next page load
+            }
+        })();
     </script>
 </body>
 </html>
