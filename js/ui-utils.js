@@ -186,3 +186,13 @@ function initAllAutoExpandTextareas(minHeight = 72, maxHeight = 400) {
         initAutoExpand(textarea, minHeight, maxHeight);
     });
 }
+
+// ============ EXPOSE TO WINDOW FOR GLOBAL ACCESS ============
+window.escapeHtml = escapeHtml;
+window.generateId = generateId;
+window.showToast = showToast;
+window.formatDate = formatDate;
+window.formatTime = formatTime;
+window.autoExpand = autoExpand;
+window.initAutoExpand = initAutoExpand;
+window.initAllAutoExpandTextareas = initAllAutoExpandTextareas;

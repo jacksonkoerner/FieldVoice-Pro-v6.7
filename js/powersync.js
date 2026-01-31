@@ -324,7 +324,7 @@ export async function psGetAll(tableName, options = {}) {
     let query = `SELECT * FROM ${tableName}`;
     const params = [];
 
-    if (options.where) {
+    if (options.where && Object.keys(options.where).length > 0) {
         const whereClauses = [];
         for (const [key, value] of Object.entries(options.where)) {
             whereClauses.push(`${key} = ?`);
