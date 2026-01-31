@@ -239,7 +239,7 @@
             // Convert to snake_case for PowerSync/Supabase
             const record = {
                 id: normalized.id || crypto.randomUUID(),
-                device_id: normalized.deviceId || '',
+                device_id: normalized.deviceId || window.getDeviceId(),
                 full_name: normalized.fullName || '',
                 title: normalized.title || '',
                 company: normalized.company || '',
