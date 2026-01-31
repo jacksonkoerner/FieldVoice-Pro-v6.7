@@ -4957,3 +4957,15 @@
         window.renderSection = renderSection;
         window.updateAllPreviews = updateAllPreviews;
         window.updateProgress = updateProgress;
+
+        // v6.7: Contractor card and personnel card interactivity (Bug 2 & 3 fix)
+        window.toggleContractorCard = toggleContractorCard;
+        window.togglePersonnelCard = togglePersonnelCard;
+        window.deleteContractorWorkEntry = deleteContractorWorkEntry;
+
+        // v6.7: Photo delete functions (Bug 6 fix)
+        window.removePhoto = removePhoto;
+        window.deleteMinimalPhoto = deleteMinimalPhoto;
+
+        // v6.7: Freeform checklist toggle
+        window.toggleFreeformChecklistItem = toggleFreeformChecklistItem;
