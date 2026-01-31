@@ -762,6 +762,9 @@ function init() {
             // window.location.href = 'index.html';
         }
     }
+
+    // Initialize PWA features (service worker, offline banner, etc.)
+    initPWA();
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -511,6 +511,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load settings from IndexedDB (or scratch pad if unsaved changes exist)
     loadSettings();
+
+    // Initialize PWA features (service worker, offline banner, etc.)
+    initPWA();
 });
 
 // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============

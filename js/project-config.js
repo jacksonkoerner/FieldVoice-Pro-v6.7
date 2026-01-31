@@ -1136,4 +1136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Setup dirty tracking after form is populated
     setupDirtyTracking();
+
+    // Initialize PWA features (service worker, offline banner, etc.)
+    initPWA();
 });

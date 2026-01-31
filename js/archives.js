@@ -415,6 +415,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `;
     }
+
+    // Initialize PWA features (service worker, offline banner, etc.)
+    initPWA();
 });
 
 // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============

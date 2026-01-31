@@ -315,6 +315,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
         console.error('Failed to initialize:', err);
     }
+
+    // Initialize PWA features (service worker, offline banner, etc.)
+    initPWA();
 });
 
 // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============

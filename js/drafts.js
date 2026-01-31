@@ -222,6 +222,9 @@ function deleteDraft(key) {
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', () => {
     renderDrafts();
+
+    // Initialize PWA features (service worker, offline banner, etc.)
+    initPWA();
 });
 
 // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============
