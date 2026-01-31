@@ -16,132 +16,124 @@ const POWERSYNC_DEV_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzI
 // Define all tables that sync with Supabase
 // This must match your Supabase schema and PowerSync sync rules
 
-const userProfiles = new Table({
-    name: 'user_profiles',
-    columns: [
-        column.text('id'),
-        column.text('full_name'),
-        column.text('email'),
-        column.text('phone'),
-        column.text('company'),
-        column.text('role'),
-        column.text('inspector_cert'),
-        column.text('preferences'), // JSON string
-        column.text('created_at'),
-        column.text('updated_at')
-    ]
-});
+const userProfiles = new Table(
+    {
+        full_name: column.text,
+        email: column.text,
+        phone: column.text,
+        company: column.text,
+        role: column.text,
+        inspector_cert: column.text,
+        preferences: column.text, // JSON string
+        created_at: column.text,
+        updated_at: column.text
+    },
+    { name: 'user_profiles' }
+);
 
-const projects = new Table({
-    name: 'projects',
-    columns: [
-        column.text('id'),
-        column.text('user_id'),
-        column.text('name'),
-        column.text('project_number'),
-        column.text('location'),
-        column.text('client_name'),
-        column.text('start_date'),
-        column.text('status'),
-        column.text('logo_url'),
-        column.text('settings'), // JSON string
-        column.text('created_at'),
-        column.text('updated_at')
-    ]
-});
+const projects = new Table(
+    {
+        user_id: column.text,
+        name: column.text,
+        project_number: column.text,
+        location: column.text,
+        client_name: column.text,
+        start_date: column.text,
+        status: column.text,
+        logo_url: column.text,
+        settings: column.text, // JSON string
+        created_at: column.text,
+        updated_at: column.text
+    },
+    { name: 'projects' }
+);
 
-const contractors = new Table({
-    name: 'contractors',
-    columns: [
-        column.text('id'),
-        column.text('project_id'),
-        column.text('name'),
-        column.text('trade'),
-        column.text('contact_name'),
-        column.text('contact_phone'),
-        column.text('contact_email'),
-        column.text('status'),
-        column.text('created_at'),
-        column.text('updated_at')
-    ]
-});
+const contractors = new Table(
+    {
+        project_id: column.text,
+        name: column.text,
+        trade: column.text,
+        contact_name: column.text,
+        contact_phone: column.text,
+        contact_email: column.text,
+        status: column.text,
+        created_at: column.text,
+        updated_at: column.text
+    },
+    { name: 'contractors' }
+);
 
-const activeReports = new Table({
-    name: 'active_reports',
-    columns: [
-        column.text('id'),
-        column.text('user_id'),
-        column.text('project_id'),
-        column.text('report_date'),
-        column.text('status'),
-        column.text('capture_mode'),
-        column.text('weather_data'), // JSON string
-        column.text('entries'), // JSON string
-        column.text('overview'), // JSON string
-        column.text('created_at'),
-        column.text('updated_at')
-    ]
-});
+const activeReports = new Table(
+    {
+        user_id: column.text,
+        project_id: column.text,
+        report_date: column.text,
+        status: column.text,
+        capture_mode: column.text,
+        weather_data: column.text, // JSON string
+        entries: column.text, // JSON string
+        overview: column.text, // JSON string
+        created_at: column.text,
+        updated_at: column.text
+    },
+    { name: 'active_reports' }
+);
 
-const aiRequests = new Table({
-    name: 'ai_requests',
-    columns: [
-        column.text('id'),
-        column.text('user_id'),
-        column.text('report_id'),
-        column.integer('entry_index'),
-        column.text('request_type'),
-        column.text('input_data'), // JSON string
-        column.text('status'),
-        column.text('created_at')
-    ]
-});
+const aiRequests = new Table(
+    {
+        user_id: column.text,
+        report_id: column.text,
+        entry_index: column.integer,
+        request_type: column.text,
+        input_data: column.text, // JSON string
+        status: column.text,
+        created_at: column.text
+    },
+    { name: 'ai_requests' }
+);
 
-const aiResponses = new Table({
-    name: 'ai_responses',
-    columns: [
-        column.text('id'),
-        column.text('request_id'),
-        column.text('response_data'), // JSON string
-        column.integer('tokens_used'),
-        column.text('created_at')
-    ]
-});
+const aiResponses = new Table(
+    {
+        request_id: column.text,
+        response_data: column.text, // JSON string
+        tokens_used: column.integer,
+        created_at: column.text
+    },
+    { name: 'ai_responses' }
+);
 
-const finalReports = new Table({
-    name: 'final_reports',
-    columns: [
-        column.text('id'),
-        column.text('user_id'),
-        column.text('project_id'),
-        column.text('report_date'),
-        column.text('project_name'),
-        column.text('project_number'),
-        column.text('weather_summary'),
-        column.text('entries'), // JSON string
-        column.text('overview'), // JSON string
-        column.text('pdf_url'),
-        column.text('submitted_at'),
-        column.text('created_at')
-    ]
-});
+const finalReports = new Table(
+    {
+        user_id: column.text,
+        project_id: column.text,
+        report_date: column.text,
+        project_name: column.text,
+        project_number: column.text,
+        weather_summary: column.text,
+        entries: column.text, // JSON string
+        overview: column.text, // JSON string
+        pdf_url: column.text,
+        submitted_at: column.text,
+        created_at: column.text
+    },
+    { name: 'final_reports' }
+);
 
-const photos = new Table({
-    name: 'photos',
-    columns: [
-        column.text('id'),
-        column.text('user_id'),
-        column.text('report_id'),
-        column.integer('entry_index'),
-        column.text('storage_path'),
-        column.text('thumbnail_path'),
-        column.text('caption'),
-        column.real('gps_lat'),
-        column.real('gps_lng'),
-        column.text('taken_at'),
-        column.text('created_at')
-    ]
-});
+const photos = new Table(
+    {
+        user_id: column.text,
+        report_id: column.text,
+        entry_index: column.integer,
+        storage_path: column.text,
+        thumbnail_path: column.text,
+        caption: column.text,
+        gps_lat: column.real,
+        gps_lng: column.real,
+        taken_at: column.text,
+        created_at: column.text
+    },
+    { name: 'photos' }
+);
 
 const powerSyncSchema = new Schema([
     userProfiles,
