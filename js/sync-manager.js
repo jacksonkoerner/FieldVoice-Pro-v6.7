@@ -200,7 +200,7 @@ async function syncReport(report, projectId) {
 
         // Check if report exists
         const { data: existing } = await supabaseClient
-            .from('reports')
+            .from('active_reports')
             .select('id')
             .eq('project_id', projectId)
             .eq('report_date', report.date)
@@ -212,7 +212,7 @@ async function syncReport(report, projectId) {
         if (existing) {
             // Update existing
             const { error } = await supabaseClient
-                .from('reports')
+                .from('active_reports')
                 .update(supabaseReport)
                 .eq('id', existing.id);
 
@@ -222,7 +222,7 @@ async function syncReport(report, projectId) {
         } else {
             // Insert new
             const { data, error } = await supabaseClient
-                .from('reports')
+                .from('active_reports')
                 .insert(supabaseReport)
                 .select('id')
                 .single();

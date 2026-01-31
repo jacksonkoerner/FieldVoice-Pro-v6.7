@@ -76,9 +76,9 @@ async function loadArchivesFromIndexedDB() {
 
 async function fetchArchivesFromSupabase() {
     try {
-        // Query reports table with photo count
+        // Query final_reports table with photo count
         const { data: reportRows, error: reportError } = await supabaseClient
-            .from('reports')
+            .from('final_reports')
             .select(`
                 id,
                 project_id,
@@ -239,7 +239,7 @@ async function deleteReport(reportId) {
     if (navigator.onLine) {
         try {
             const { error } = await supabaseClient
-                .from('reports')
+                .from('final_reports')
                 .delete()
                 .eq('id', reportId);
 
