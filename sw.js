@@ -27,10 +27,10 @@ const STATIC_ASSETS = [
     './js/ui-utils.js',
     './js/media-utils.js',
     './manifest.json',
-    'icons/icon-192x192.png',
-    'icons/icon-512x512.png',
-    'icons/icon-192x192-maskable.png',
-    'icons/icon-512x512-maskable.png'
+    '/FieldVoice-Pro-v6.7/icons/icon-192x192.png',
+    '/FieldVoice-Pro-v6.7/icons/icon-512x512.png',
+    '/FieldVoice-Pro-v6.7/icons/icon-192x192-maskable.png',
+    '/FieldVoice-Pro-v6.7/icons/icon-512x512-maskable.png'
 ];
 
 // External CDN assets to cache
