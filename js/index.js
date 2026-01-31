@@ -692,22 +692,31 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ============ ONE-TIME MIGRATION: Clear stale IndexedDB projects (v1.13.0) ============
     // LEGACY: This migration clears old IndexedDB project data (now using PowerSync)
+    // NOTE: Migration is now NON-BLOCKING and has a timeout to prevent app hang
     const MIGRATION_KEY = 'fvp_migration_v113_idb_clear';
     if (!localStorage.getItem(MIGRATION_KEY)) {
-        console.log('[MIGRATION v1.13.0] Clearing stale IndexedDB projects...');
-        try {
-            if (window.idb && typeof window.idb.clearStore === 'function') {
-                await window.idb.clearStore('projects');
-                console.log('[MIGRATION v1.13.0] IndexedDB projects cleared successfully');
-            } else {
-                console.log('[MIGRATION v1.13.0] IndexedDB not initialized, skipping clear');
+        console.log('[MIGRATION v1.13.0] Clearing stale IndexedDB projects (non-blocking)...');
+        // Run migration in background - don't await, don't block dashboard
+        (async () => {
+            try {
+                if (window.idb && typeof window.idb.clearStore === 'function') {
+                    // Timeout migration after 2 seconds to prevent hang
+                    const migrationPromise = window.idb.clearStore('projects');
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Migration timeout')), 2000)
+                    );
+                    await Promise.race([migrationPromise, timeoutPromise]);
+                    console.log('[MIGRATION v1.13.0] IndexedDB projects cleared successfully');
+                } else {
+                    console.log('[MIGRATION v1.13.0] IndexedDB not initialized, skipping clear');
+                }
+                localStorage.setItem(MIGRATION_KEY, new Date().toISOString());
+            } catch (migrationErr) {
+                console.warn('[MIGRATION v1.13.0] Migration skipped/failed:', migrationErr.message);
+                // Set flag anyway to prevent retrying on every load
+                localStorage.setItem(MIGRATION_KEY, 'skipped-' + new Date().toISOString());
             }
-            localStorage.setItem(MIGRATION_KEY, new Date().toISOString());
-        } catch (migrationErr) {
-            console.warn('[MIGRATION v1.13.0] Failed to clear IndexedDB:', migrationErr);
-            // Still set the flag to avoid retrying on every load
-            localStorage.setItem(MIGRATION_KEY, 'failed-' + new Date().toISOString());
-        }
+        })();
     }
 
     // Initialize sync manager first (non-blocking)

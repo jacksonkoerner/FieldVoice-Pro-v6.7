@@ -334,7 +334,8 @@ async function saveProject() {
             status: currentProject.status || 'active',
             prime_contractor: currentProject.primeContractor || '',
             engineer: currentProject.engineer || '',
-            logo: currentProject.logo || null,
+            // v6.7 fix: logoUrl/logoThumbnail take priority over legacy logo field
+            logo: currentProject.logoUrl || currentProject.logoThumbnail || currentProject.logo || null,
             cno_solicitation_no: currentProject.cnoSolicitationNo || 'N/A',
             noab_project_no: currentProject.noabProjectNo || '',
             contract_duration: currentProject.contractDuration || '',
@@ -446,7 +447,8 @@ function cancelEdit() {
 function populateForm() {
     if (!currentProject) return;
 
-    document.getElementById('projectName').value = currentProject.name || '';
+    // v6.7 fix: normalizeProject() returns projectName, not name
+    document.getElementById('projectName').value = currentProject.name || currentProject.projectName || '';
     document.getElementById('noabProjectNo').value = currentProject.noabProjectNo || '';
     document.getElementById('cnoSolicitationNo').value = currentProject.cnoSolicitationNo || 'N/A';
     document.getElementById('location').value = currentProject.location || '';
