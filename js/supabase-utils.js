@@ -14,13 +14,10 @@
 /**
  * Convert Supabase project row to JS format
  *
- * DB columns: id, user_id, project_name, noab_project_no, cno_solicitation_no,
- *             location, engineer, prime_contractor, notice_to_proceed,
- *             contract_duration, expected_completion, default_start_time,
- *             default_end_time, weather_days, logo_thumbnail, logo_url,
- *             logo (legacy), status, created_at, updated_at
- *
- * NOTE: Database migration required to add logo_thumbnail and logo_url columns
+ * DB columns: id, project_name, location, status, prime_contractor, engineer, logo,
+ *             cno_solicitation_no, noab_project_no, contract_duration,
+ *             notice_to_proceed, expected_completion, weather_days,
+ *             default_start_time, default_end_time, created_at, updated_at, created_by
  *
  * @param {Object} row - Supabase project row
  * @returns {Object} JS project object
@@ -30,24 +27,20 @@ function fromSupabaseProject(row) {
     return {
         id: row.id,
         projectName: row.project_name || '',
-        noabProjectNo: row.noab_project_no || '',
-        cnoSolicitationNo: row.cno_solicitation_no || '',
         location: row.location || '',
-        engineer: row.engineer || '',
+        status: row.status || 'active',
         primeContractor: row.prime_contractor || '',
-        noticeToProceed: row.notice_to_proceed || null,
+        engineer: row.engineer || '',
+        logo: row.logo || null,
+        cnoSolicitationNo: row.cno_solicitation_no || '',
+        noabProjectNo: row.noab_project_no || '',
         contractDuration: row.contract_duration || null,
+        noticeToProceed: row.notice_to_proceed || null,
         expectedCompletion: row.expected_completion || null,
+        weatherDays: row.weather_days || null,
         defaultStartTime: row.default_start_time || '',
         defaultEndTime: row.default_end_time || '',
-        weatherDays: row.weather_days || null,
-        // New logo fields
-        logoThumbnail: row.logo_thumbnail || null,
-        logoUrl: row.logo_url || null,
-        // Legacy logo field for backwards compatibility
-        logo: row.logo || null,
-        status: row.status || 'active',
-        userId: row.user_id || null,
+        createdBy: row.created_by || null,
         createdAt: row.created_at,
         updatedAt: row.updated_at
     };
@@ -63,26 +56,29 @@ function toSupabaseProject(project) {
     if (!project) return null;
     const row = {
         project_name: project.projectName || project.name || '',
-        noab_project_no: project.noabProjectNo || '',
-        cno_solicitation_no: project.cnoSolicitationNo || '',
         location: project.location || '',
-        engineer: project.engineer || '',
+        status: project.status || 'active',
         prime_contractor: project.primeContractor || '',
-        notice_to_proceed: project.noticeToProceed || null,
+        engineer: project.engineer || '',
+        logo: project.logo || null,
+        cno_solicitation_no: project.cnoSolicitationNo || '',
+        noab_project_no: project.noabProjectNo || '',
         contract_duration: project.contractDuration || null,
+        notice_to_proceed: project.noticeToProceed || null,
         expected_completion: project.expectedCompletion || null,
-        default_start_time: project.defaultStartTime || '',
-        default_end_time: project.defaultEndTime || '',
         weather_days: project.weatherDays || null,
-        // New logo fields
-        logo_thumbnail: project.logoThumbnail || null,
-        logo_url: project.logoUrl || null,
-        status: project.status || 'active'
+        default_start_time: project.defaultStartTime || '',
+        default_end_time: project.defaultEndTime || ''
     };
 
     // Only include id if it exists (for updates/upserts)
     if (project.id) {
         row.id = project.id;
+    }
+
+    // Include created_by if set
+    if (project.createdBy || project.created_by) {
+        row.created_by = project.createdBy || project.created_by;
     }
 
     return row;
@@ -151,50 +147,44 @@ function toSupabaseContractor(contractor, projectId) {
 // ============================================================================
 
 /**
- * Convert Supabase report row to JS format
+ * Convert Supabase active_reports row to JS format
  *
- * DB columns: id, project_id, user_id, device_id, report_date, status,
- *             capture_mode, pdf_url, created_at, updated_at, submitted_at
+ * DB columns: id, project_id, device_id, report_date, status,
+ *             started_at, started_by, last_heartbeat
  *
- * @param {Object} row - Supabase report row
+ * @param {Object} row - Supabase active_reports row
  * @returns {Object} JS report object
  */
 function fromSupabaseReport(row) {
   return {
     id: row.id,
     projectId: row.project_id || null,
-    userId: row.user_id || null,
     deviceId: row.device_id || null,
     reportDate: row.report_date || null,
     status: row.status || 'draft',
-    captureMode: row.capture_mode || 'guided',
-    pdfUrl: row.pdf_url || null,
-    createdAt: row.created_at || null,
-    updatedAt: row.updated_at || null,
-    submittedAt: row.submitted_at || null
+    startedAt: row.started_at || null,
+    startedBy: row.started_by || null,
+    lastHeartbeat: row.last_heartbeat || null
   };
 }
 
 /**
- * Convert JS report object to Supabase format
+ * Convert JS report object to Supabase active_reports format
  *
  * @param {Object} report - JS report object
  * @param {string} projectId - Project ID
- * @param {string} userId - User ID
+ * @param {string} userId - User ID (used as started_by)
  * @param {string} deviceId - Device ID
  * @returns {Object} Supabase row format
  */
 function toSupabaseReport(report, projectId, userId, deviceId) {
   const row = {
     project_id: projectId,
-    user_id: userId,
     device_id: deviceId,
     report_date: report.reportDate || report.date || new Date().toISOString().split('T')[0],
     status: report.status || 'draft',
-    capture_mode: report.captureMode || report.capture_mode || 'guided',
-    updated_at: new Date().toISOString(),
-    toggle_states: report.toggleStates || {},
-    safety_no_incidents: report.safety?.noIncidents ?? null
+    started_by: userId || report.startedBy || null,
+    last_heartbeat: new Date().toISOString()
   };
 
   // Only include id if it exists (for updates)
@@ -202,16 +192,11 @@ function toSupabaseReport(report, projectId, userId, deviceId) {
     row.id = report.id;
   }
 
-  // Include pdf_url if set
-  if (report.pdfUrl) {
-    row.pdf_url = report.pdfUrl;
-  }
-
-  // Include submitted_at if status is submitted
-  if (report.status === 'submitted' && !report.submittedAt) {
-    row.submitted_at = new Date().toISOString();
-  } else if (report.submittedAt) {
-    row.submitted_at = report.submittedAt;
+  // Include started_at if not already set
+  if (!report.startedAt) {
+    row.started_at = new Date().toISOString();
+  } else {
+    row.started_at = report.startedAt;
   }
 
   return row;
@@ -562,10 +547,10 @@ function toSupabaseFinal(finalData, reportId) {
 // ============================================================================
 
 /**
- * Convert Supabase photo row to JS format
+ * Convert Supabase photos row to JS format
  *
- * DB columns: id, report_id, photo_url, caption, photo_type,
- *             taken_at, location_lat, location_lng, created_at
+ * DB columns: id, active_report_id, photo_url, storage_path, caption,
+ *             photo_type, taken_at, location_lat, location_lng, created_at
  *
  * @param {Object} row - Supabase photo row
  * @returns {Object} JS photo object
@@ -573,8 +558,9 @@ function toSupabaseFinal(finalData, reportId) {
 function fromSupabasePhoto(row) {
   return {
     id: row.id,
-    reportId: row.report_id || null,
+    activeReportId: row.active_report_id || null,
     photoUrl: row.photo_url || '',
+    storagePath: row.storage_path || '',
     caption: row.caption || '',
     photoType: row.photo_type || '',
     takenAt: row.taken_at || null,
@@ -588,13 +574,14 @@ function fromSupabasePhoto(row) {
  * Convert JS photo object to Supabase format
  *
  * @param {Object} photo - JS photo object
- * @param {string} reportId - Report ID
+ * @param {string} activeReportId - Active Report ID
  * @returns {Object} Supabase row format
  */
-function toSupabasePhoto(photo, reportId) {
+function toSupabasePhoto(photo, activeReportId) {
   const row = {
-    report_id: reportId,
+    active_report_id: activeReportId || photo.activeReportId,
     photo_url: photo.photoUrl || photo.photo_url || '',
+    storage_path: photo.storagePath || photo.storage_path || '',
     caption: photo.caption || '',
     photo_type: photo.photoType || photo.photo_type || '',
     taken_at: photo.takenAt || photo.taken_at || new Date().toISOString(),
