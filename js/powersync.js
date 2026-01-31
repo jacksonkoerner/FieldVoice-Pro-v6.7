@@ -135,16 +135,18 @@ const photos = new Table(
     { name: 'photos' }
 );
 
-const powerSyncSchema = new Schema([
-    userProfiles,
-    projects,
-    contractors,
-    activeReports,
-    aiRequests,
-    aiResponses,
-    finalReports,
-    photos
-]);
+const powerSyncSchema = new Schema({
+    tables: [
+        userProfiles,
+        projects,
+        contractors,
+        activeReports,
+        aiRequests,
+        aiResponses,
+        finalReports,
+        photos
+    ]
+});
 
 // ============ STATE ============
 let powerSyncDb = null;
