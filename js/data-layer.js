@@ -17,6 +17,24 @@
     'use strict';
 
     // ========================================
+    // TIMEOUT UTILITY
+    // ========================================
+
+    /**
+     * Wrap a promise with a timeout to prevent UI hangs
+     * @param {Promise} promise - The promise to wrap
+     * @param {number} ms - Timeout in milliseconds (default: 5000)
+     * @param {string} errorMsg - Error message on timeout
+     * @returns {Promise} - Resolves/rejects based on which completes first
+     */
+    async function withTimeout(promise, ms = 5000, errorMsg = 'Operation timed out') {
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(errorMsg)), ms)
+        );
+        return Promise.race([promise, timeout]);
+    }
+
+    // ========================================
     // PROJECTS
     // ========================================
 
@@ -29,15 +47,23 @@
         const userId = getStorageItem(STORAGE_KEYS.USER_ID);
 
         try {
-            // Query PowerSync for projects
+            // Query PowerSync for projects (with timeout protection)
             const whereClause = userId ? { created_by: userId } : {};
-            const projects = await window.PowerSyncClient.getAll('projects', {
-                where: whereClause,
-                orderBy: 'project_name'
-            });
+            const projects = await withTimeout(
+                window.PowerSyncClient.getAll('projects', {
+                    where: whereClause,
+                    orderBy: 'project_name'
+                }),
+                5000,
+                'loadProjects: PowerSync query timed out'
+            );
 
             // Query contractors separately (PowerSync doesn't support JOINs)
-            const contractors = await window.PowerSyncClient.getAll('contractors');
+            const contractors = await withTimeout(
+                window.PowerSyncClient.getAll('contractors'),
+                5000,
+                'loadProjects: contractors query timed out'
+            );
 
             // Normalize and attach contractors to each project
             const normalized = projects.map(p => {
@@ -87,8 +113,12 @@
         const userId = getStorageItem(STORAGE_KEYS.USER_ID);
 
         try {
-            // Query PowerSync for the project by ID
-            const projectRow = await window.PowerSyncClient.get('projects', activeId);
+            // Query PowerSync for the project by ID (with timeout protection)
+            const projectRow = await withTimeout(
+                window.PowerSyncClient.get('projects', activeId),
+                5000,
+                'loadActiveProject: PowerSync query timed out'
+            );
 
             if (!projectRow) {
                 console.log('[DATA] Active project not found in PowerSync:', activeId);
@@ -101,10 +131,14 @@
                 return null;
             }
 
-            // Query contractors for this project
-            const contractors = await window.PowerSyncClient.getAll('contractors', {
-                where: { project_id: activeId }
-            });
+            // Query contractors for this project (with timeout protection)
+            const contractors = await withTimeout(
+                window.PowerSyncClient.getAll('contractors', {
+                    where: { project_id: activeId }
+                }),
+                5000,
+                'loadActiveProject: contractors query timed out'
+            );
 
             // Normalize project and attach contractors
             const project = normalizeProject(projectRow);
@@ -202,11 +236,15 @@
         }
 
         try {
-            // Query PowerSync for user profile by device_id
-            const profiles = await window.PowerSyncClient.getAll('user_profiles', {
-                where: { device_id: deviceId },
-                limit: 1
-            });
+            // Query PowerSync for user profile by device_id (with timeout protection)
+            const profiles = await withTimeout(
+                window.PowerSyncClient.getAll('user_profiles', {
+                    where: { device_id: deviceId },
+                    limit: 1
+                }),
+                5000,
+                'loadUserSettings: PowerSync query timed out'
+            );
 
             if (!profiles || profiles.length === 0) {
                 console.log('[DATA] No user profile found for device:', deviceId);
@@ -247,7 +285,11 @@
                 phone: normalized.phone || ''
             };
 
-            await window.PowerSyncClient.save('user_profiles', record);
+            await withTimeout(
+                window.PowerSyncClient.save('user_profiles', record),
+                5000,
+                'saveUserSettings: PowerSync save timed out'
+            );
             console.log('[DATA] User settings saved to PowerSync');
             return true;
         } catch (e) {
