@@ -186,10 +186,10 @@ async function loadReport() {
         // Load related data in parallel
         // Note: user_edits, contractor_work, personnel, and equipment_usage now stored in report_raw_capture.raw_data
         const [rawCaptureResult, photosResult, aiResponseResult] = await Promise.all([
-            supabaseClient.from('report_raw_capture').select('*').eq('report_id', reportRow.id).maybeSingle(),
-            supabaseClient.from('photos').select('*').eq('report_id', reportRow.id).order('created_at', { ascending: true }),
+            supabaseClient.from('report_raw_capture').select('*').eq('active_report_id', reportRow.id).maybeSingle(),
+            supabaseClient.from('photos').select('*').eq('active_report_id', reportRow.id).order('created_at', { ascending: true }),
             // Get most recent AI response (handles multiple rows from retries)
-            supabaseClient.from('ai_responses').select('*').eq('report_id', reportRow.id).order('received_at', { ascending: false }).limit(1).maybeSingle()
+            supabaseClient.from('ai_responses').select('*').eq('active_report_id', reportRow.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
         ]);
 
         // Build the report object
@@ -278,7 +278,7 @@ async function loadReport() {
                 caption: row.caption || '',
                 date: row.taken_at ? new Date(row.taken_at).toLocaleDateString() : '',
                 time: row.taken_at ? new Date(row.taken_at).toLocaleTimeString() : '',
-                gps: row.gps_lat && row.gps_lng ? { lat: row.gps_lat, lng: row.gps_lng } : null
+                gps: row.location_lat && row.location_lng ? { lat: row.location_lat, lng: row.location_lng } : null
             }));
         }
 
@@ -1119,7 +1119,7 @@ async function submitReport() {
         // 1. Save final version to final_reports table
         // Note: Schema uses individual columns, not a single final_data JSONB
         const finalData = {
-            report_id: currentReportId,
+            active_report_id: currentReportId,
             // Store structured data in JSONB columns
             contractors_json: report.activities || [],
             personnel_json: report.operations || [],
@@ -1148,7 +1148,7 @@ async function submitReport() {
         const { data: existingFinal } = await supabaseClient
             .from('final_reports')
             .select('id')
-            .eq('report_id', currentReportId)
+            .eq('active_report_id', currentReportId)
             .single();
 
         if (existingFinal) {
@@ -1176,7 +1176,7 @@ async function submitReport() {
                     has_photos: finalData.has_photos,
                     submitted_at: submittedAt
                 })
-                .eq('report_id', currentReportId);
+                .eq('active_report_id', currentReportId);
 
             if (finalError) {
                 console.error('[SUPABASE] Error updating final_reports:', finalError);

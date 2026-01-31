@@ -107,14 +107,14 @@ async function fetchArchivesFromSupabase() {
         const reportIds = reportRows.map(r => r.id);
         const { data: photoCounts, error: photoError } = await supabaseClient
             .from('photos')
-            .select('report_id')
-            .in('report_id', reportIds);
+            .select('active_report_id')
+            .in('active_report_id', reportIds);
 
         // Count photos per report
         const photoCountMap = {};
         if (!photoError && photoCounts) {
             photoCounts.forEach(p => {
-                photoCountMap[p.report_id] = (photoCountMap[p.report_id] || 0) + 1;
+                photoCountMap[p.active_report_id] = (photoCountMap[p.active_report_id] || 0) + 1;
             });
         }
 

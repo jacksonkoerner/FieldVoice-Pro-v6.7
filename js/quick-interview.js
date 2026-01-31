@@ -1152,7 +1152,7 @@
                 const { data: photos } = await supabaseClient
                     .from('photos')
                     .select('id, storage_path')
-                    .eq('report_id', reportId);
+                    .eq('active_report_id', reportId);
 
                 // 2. Delete photos from storage bucket
                 if (photos && photos.length > 0) {
@@ -1168,7 +1168,7 @@
                 await supabaseClient
                     .from('photos')
                     .delete()
-                    .eq('report_id', reportId);
+                    .eq('active_report_id', reportId);
 
                 // 4. Delete from report_entries
                 await supabaseClient
@@ -1180,13 +1180,13 @@
                 await supabaseClient
                     .from('report_raw_capture')
                     .delete()
-                    .eq('report_id', reportId);
+                    .eq('active_report_id', reportId);
 
                 // 6. Delete from ai_responses (if any)
                 await supabaseClient
                     .from('ai_responses')
                     .delete()
-                    .eq('report_id', reportId);
+                    .eq('active_report_id', reportId);
 
                 // 7. Delete from reports (last, as it's the parent)
                 await supabaseClient
@@ -2997,7 +2997,7 @@
                 const { data: rawCapture } = await supabaseClient
                     .from('report_raw_capture')
                     .select('*')
-                    .eq('report_id', reportRow.id)
+                    .eq('active_report_id', reportRow.id)
                     .maybeSingle();
 
                 // contractor_work now stored in raw_data.contractor_work
@@ -3013,7 +3013,7 @@
                 const { data: photos } = await supabaseClient
                     .from('photos')
                     .select('*')
-                    .eq('report_id', reportRow.id)
+                    .eq('active_report_id', reportRow.id)
                     .order('taken_at', { ascending: true });
 
                 // Reconstruct the report object
@@ -3120,7 +3120,7 @@
                         timestamp: p.taken_at,
                         date: new Date(p.taken_at).toLocaleDateString(),
                         time: new Date(p.taken_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-                        gps: p.gps_lat && p.gps_lng ? { lat: p.gps_lat, lng: p.gps_lng } : null,
+                        gps: p.location_lat && p.location_lng ? { lat: p.location_lat, lng: p.location_lng } : null,
                         fileName: p.filename
                     };
                 });
@@ -3273,7 +3273,7 @@
                     : [];
 
                 const rawCaptureData = {
-                    report_id: reportId,
+                    active_report_id: reportId,
                     capture_mode: report.meta?.captureMode || 'guided',
                     freeform_notes: report.fieldNotes?.freeformNotes || '',
                     work_summary: report.guidedNotes?.workSummary || '',
@@ -3293,7 +3293,7 @@
                 await supabaseClient
                     .from('report_raw_capture')
                     .delete()
-                    .eq('report_id', reportId);
+                    .eq('active_report_id', reportId);
 
                 await supabaseClient
                     .from('report_raw_capture')
@@ -3407,12 +3407,12 @@
                     if (photo.storagePath) {
                         const photoData = {
                             id: photo.id,
-                            report_id: currentReportId,
+                            active_report_id: currentReportId,
                             storage_path: photo.storagePath,
                             filename: photo.fileName || photo.id,
                             caption: photo.caption || '',
-                            gps_lat: photo.gps?.lat || null,
-                            gps_lng: photo.gps?.lng || null,
+                            location_lat: photo.gps?.lat || null,
+                            location_lng: photo.gps?.lng || null,
                             taken_at: photo.timestamp || new Date().toISOString(),
                             created_at: photo.createdAt || new Date().toISOString()
                         };

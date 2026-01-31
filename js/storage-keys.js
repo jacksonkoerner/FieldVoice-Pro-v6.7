@@ -49,12 +49,12 @@ const STORAGE_KEYS = {
 /**
  * @typedef {Object} Project
  * @property {string} id - UUID
- * @property {string} name - Project name
- * @property {string} project_number - Project number/code
+ * @property {string} project_name - Project name
  * @property {string} location - Project location
- * @property {string} client_name - Client name
+ * @property {string} engineer - Project engineer
  * @property {Contractor[]} contractors - Array of contractors
- * @property {boolean} is_active - Whether project is active
+ * @property {string} status - Project status (active, archived)
+ * @property {string} created_by - User ID who created the project
  */
 
 /**
@@ -88,12 +88,15 @@ const STORAGE_KEYS = {
 /**
  * @typedef {Object} Photo
  * @property {string} id - Unique identifier
- * @property {string} base64 - Base64 encoded image data
+ * @property {string} active_report_id - Report this photo belongs to
+ * @property {string} photo_url - URL to photo in storage
+ * @property {string} storage_path - Path in Supabase storage
  * @property {string} caption - Photo caption
- * @property {number} taken_at - Timestamp when photo was taken
+ * @property {string} photo_type - Type of photo
+ * @property {string} taken_at - Timestamp when photo was taken
  * @property {number} [location_lat] - Latitude where photo was taken
  * @property {number} [location_lng] - Longitude where photo was taken
- * @property {string} photo_type - Type of photo
+ * @property {string} created_at - Creation timestamp
  */
 
 /**
