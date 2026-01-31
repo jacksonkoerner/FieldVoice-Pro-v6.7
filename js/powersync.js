@@ -218,6 +218,13 @@ class SupabaseConnector {
                 const table = op.table;
                 let record = { ...op.opData, id: op.id };
 
+                // Sanitize empty strings to null (Supabase rejects "" for integer/numeric columns)
+                Object.keys(record).forEach(key => {
+                    if (record[key] === '') {
+                        record[key] = null;
+                    }
+                });
+
                 // Filter out fields that don't exist in Supabase schema
                 if (table === 'user_profiles') {
                     // Remove legacy 'role' field - column doesn't exist in Supabase
