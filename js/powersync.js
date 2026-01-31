@@ -24,6 +24,7 @@ const userProfiles = new Table(
         company: column.text,
         email: column.text,
         phone: column.text,
+        preferences: column.text,
         created_at: column.text,
         updated_at: column.text
     },
@@ -64,7 +65,8 @@ const contractors = new Table(
         status: column.text,
         added_date: column.text,
         removed_date: column.text,
-        created_at: column.text
+        created_at: column.text,
+        updated_at: column.text
     },
     { name: 'contractors' }
 );
@@ -404,8 +406,8 @@ export async function psSave(tableName, record) {
         record.created_at = now;
     }
 
-    // Tables that have updated_at column (NOT contractors, active_reports, ai_requests, ai_responses)
-    const tablesWithUpdatedAt = ['user_profiles', 'projects', 'final_reports'];
+    // Tables that have updated_at column (NOT active_reports, ai_requests, ai_responses)
+    const tablesWithUpdatedAt = ['user_profiles', 'projects', 'contractors', 'final_reports'];
     if (tablesWithUpdatedAt.includes(tableName)) {
         record.updated_at = now;
     }
