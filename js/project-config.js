@@ -790,7 +790,7 @@ async function handleLogoSelect(event) {
 
     try {
         // 1. Compress image for local storage (thumbnail)
-        const thumbnailBase64 = await compressImageToThumbnail(file);
+        const thumbnailBase64 = await window.compressImageToThumbnail(file);
         currentProject.logoThumbnail = thumbnailBase64;
 
         // Show preview immediately with thumbnail
@@ -803,7 +803,7 @@ async function handleLogoSelect(event) {
         logoPreviewArea.classList.remove('hidden');
 
         // 2. Upload original to Supabase Storage (async, non-blocking)
-        const logoUrl = await uploadLogoToStorage(file, currentProject.id);
+        const logoUrl = await window.uploadLogoToStorage(file, currentProject.id);
         if (logoUrl) {
             currentProject.logoUrl = logoUrl;
             showToast('Logo uploaded');
@@ -830,7 +830,7 @@ async function removeLogo() {
     if (!currentProject) return;
 
     // Delete from Supabase Storage (async, non-blocking)
-    deleteLogoFromStorage(currentProject.id);
+    window.deleteLogoFromStorage(currentProject.id);
 
     // Clear logo fields
     currentProject.logoThumbnail = null;

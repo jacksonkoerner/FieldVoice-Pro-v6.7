@@ -4909,3 +4909,19 @@
         window.closePermissionsModal = closePermissionsModal;
         window.handleLockWarningBack = handleLockWarningBack;
         window.handleLockWarningForceEdit = handleLockWarningForceEdit;
+
+        // Edit and inline update functions
+        window.startEditEntry = startEditEntry;
+        window.saveEditEntry = saveEditEntry;
+        window.startFreeformEdit = startFreeformEdit;
+        window.saveFreeformEdit = saveFreeformEdit;
+        window.deleteEntryById = deleteEntryById;
+        window.handleToggle = handleToggle;
+        window.addContractorWorkEntry = addContractorWorkEntry;
+        window.toggleNoWork = toggleNoWork;
+        window.updateOperations = updateOperations;
+        window.updateEquipmentRow = updateEquipmentRow;
+        window.updatePhotoCaption = updatePhotoCaption;
+        window.renderSection = renderSection;
+        window.updateAllPreviews = updateAllPreviews;
+        window.updateProgress = updateProgress;
