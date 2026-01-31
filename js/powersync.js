@@ -24,32 +24,32 @@ const userProfiles = new Table(
         company: column.text,
         email: column.text,
         phone: column.text,
-        preferences: column.text,
         created_at: column.text,
-        updated_at: column.text
+        updated_at: column.text,
+        preferences: column.text
     },
     { name: 'user_profiles' }
 );
 
 const projects = new Table(
     {
+        created_by: column.text,
         project_name: column.text,
-        location: column.text,
-        status: column.text,
-        prime_contractor: column.text,
-        engineer: column.text,
-        logo: column.text,
-        cno_solicitation_no: column.text,
         noab_project_no: column.text,
-        contract_duration: column.text,
+        cno_solicitation_no: column.text,
+        location: column.text,
+        engineer: column.text,
+        prime_contractor: column.text,
         notice_to_proceed: column.text,
+        contract_duration: column.integer,
         expected_completion: column.text,
-        weather_days: column.integer,
         default_start_time: column.text,
         default_end_time: column.text,
+        weather_days: column.integer,
+        logo: column.text,
+        status: column.text,
         created_at: column.text,
-        updated_at: column.text,
-        created_by: column.text
+        updated_at: column.text
     },
     { name: 'projects' }
 );
@@ -74,13 +74,13 @@ const contractors = new Table(
 const activeReports = new Table(
     {
         project_id: column.text,
-        device_id: column.text,
         report_date: column.text,
-        status: column.text,
-        started_at: column.text,
         started_by: column.text,
+        device_id: column.text,
+        started_at: column.text,
         last_heartbeat: column.text,
-        inspector_name: column.text // Name of inspector for display in lock UI
+        status: column.text,
+        inspector_name: column.text
     },
     { name: 'active_reports' }
 );
@@ -108,47 +108,40 @@ const aiResponses = new Table(
 
 const finalReports = new Table(
     {
-        project_id: column.text,
         active_report_id: column.text,
-        report_date: column.text,
-        submitted_at: column.text,
+        project_id: column.text,
         submitted_by: column.text,
-        executive_summary: column.text,
-        work_performed: column.text,
-        materials_used: column.text,
-        delays_issues: column.text,
-        inspector_notes: column.text,
-        // Weather fields
-        general_condition: column.text,
-        high_temp: column.integer,
-        low_temp: column.integer,
-        precipitation: column.text,
-        wind_speed: column.text,
-        humidity: column.text,
-        // Has flags
-        has_work_performed: column.integer,
-        has_materials: column.integer,
-        has_delays: column.integer,
-        has_visitors: column.integer,
-        has_safety: column.integer,
-        has_photos: column.integer,
-        // JSON data fields
-        work_performed_json: column.text,
-        materials_json: column.text,
-        delays_json: column.text,
-        visitors_json: column.text,
-        safety_json: column.text,
-        photos_json: column.text,
-        // Notes fields
-        work_performed_notes: column.text,
-        materials_notes: column.text,
-        delays_notes: column.text,
-        visitors_notes: column.text,
-        safety_notes: column.text,
-        // PDF fields
+        report_date: column.text,
         pdf_url: column.text,
         pdf_storage_path: column.text,
-        created_at: column.text
+        weather_high_temp: column.real,
+        weather_low_temp: column.real,
+        weather_precipitation: column.text,
+        weather_general_condition: column.text,
+        weather_job_site_condition: column.text,
+        weather_adverse_conditions: column.text,
+        executive_summary: column.text,
+        work_performed: column.text,
+        safety_observations: column.text,
+        delays_issues: column.text,
+        materials_used: column.text,
+        qaqc_notes: column.text,
+        communications_notes: column.text,
+        visitors_deliveries_notes: column.text,
+        inspector_notes: column.text,
+        has_contractor_personnel: column.integer,
+        has_equipment: column.integer,
+        has_issues: column.integer,
+        has_communications: column.integer,
+        has_qaqc: column.integer,
+        has_safety_incidents: column.integer,
+        has_visitors_deliveries: column.integer,
+        has_photos: column.integer,
+        contractors_json: column.text,
+        equipment_json: column.text,
+        personnel_json: column.text,
+        created_at: column.text,
+        submitted_at: column.text
     },
     { name: 'final_reports' }
 );
@@ -405,17 +398,22 @@ export async function psSave(tableName, record) {
         record.id = crypto.randomUUID();
     }
 
+    // Add device_id for user_profiles if not provided
+    if (tableName === 'user_profiles' && !record.device_id && typeof window.getDeviceId === 'function') {
+        record.device_id = window.getDeviceId();
+    }
+
     // Add timestamps - only for tables that have these columns
     const now = new Date().toISOString();
 
     // Tables that have created_at column
-    const tablesWithCreatedAt = ['user_profiles', 'projects', 'contractors', 'active_reports', 'ai_requests', 'ai_responses', 'final_reports'];
+    const tablesWithCreatedAt = ['user_profiles', 'projects', 'contractors', 'active_reports', 'ai_requests', 'ai_responses', 'final_reports', 'photos'];
     if (tablesWithCreatedAt.includes(tableName) && !record.created_at) {
         record.created_at = now;
     }
 
-    // Tables that have updated_at column (NOT active_reports, ai_requests, ai_responses)
-    const tablesWithUpdatedAt = ['user_profiles', 'projects', 'contractors', 'final_reports'];
+    // Tables that have updated_at column (NOT active_reports, ai_requests, ai_responses, final_reports, photos)
+    const tablesWithUpdatedAt = ['user_profiles', 'projects', 'contractors'];
     if (tablesWithUpdatedAt.includes(tableName)) {
         record.updated_at = now;
     }
