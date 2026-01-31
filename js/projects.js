@@ -6,10 +6,30 @@ let isRefreshing = false;
 let activeProjectId = null;
 let projectsCache = [];
 
+/**
+ * Helper to load data with timeout protection
+ */
+async function loadWithTimeout(loader, name, defaultValue, timeoutMs = 5000) {
+    try {
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${name} timeout`)), timeoutMs)
+        );
+        return await Promise.race([loader(), timeoutPromise]);
+    } catch (err) {
+        console.warn(`[DATA] ${name} failed or timed out:`, err.message);
+        return defaultValue;
+    }
+}
+
 // ============ PROJECT LOADING (via dataLayer/PowerSync) ============
 async function getAllProjects() {
     try {
-        const projects = await window.dataLayer.loadProjects();
+        const projects = await loadWithTimeout(
+            () => window.dataLayer.loadProjects(),
+            'loadProjects',
+            [],
+            5000
+        );
         // Map to display format with both camelCase and snake_case for compatibility
         projectsCache = projects.map(p => ({
             ...p,

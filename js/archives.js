@@ -7,10 +7,30 @@ let pendingDeleteDate = null;
 let projectsCache = [];
 let isRefreshing = false;
 
+/**
+ * Helper to load data with timeout protection
+ */
+async function loadWithTimeout(loader, name, defaultValue, timeoutMs = 5000) {
+    try {
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`${name} timeout`)), timeoutMs)
+        );
+        return await Promise.race([loader(), timeoutPromise]);
+    } catch (err) {
+        console.warn(`[DATA] ${name} failed or timed out:`, err.message);
+        return defaultValue;
+    }
+}
+
 // ============ PROJECT LOADING (via dataLayer) ============
 async function loadProjects() {
     try {
-        const projects = await window.dataLayer.loadProjects();
+        const projects = await loadWithTimeout(
+            () => window.dataLayer.loadProjects(),
+            'loadProjects',
+            [],
+            5000
+        );
         projectsCache = projects.map(p => ({
             id: p.id,
             name: p.projectName || p.project_name || '',
@@ -31,7 +51,12 @@ function getProjectById(projectId) {
 // ============ ARCHIVE LOADING (via dataLayer/PowerSync) ============
 async function getAllReports() {
     try {
-        const archives = await window.dataLayer.loadArchivedReports(100);
+        const archives = await loadWithTimeout(
+            () => window.dataLayer.loadArchivedReports(100),
+            'loadArchivedReports',
+            [],
+            5000
+        );
 
         // Map to display format
         const mapped = archives.map(row => {
