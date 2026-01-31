@@ -30,10 +30,10 @@
 
         try {
             // Query PowerSync for projects
-            const whereClause = userId ? { user_id: userId } : {};
+            const whereClause = userId ? { created_by: userId } : {};
             const projects = await window.PowerSyncClient.getAll('projects', {
                 where: whereClause,
-                orderBy: 'name'
+                orderBy: 'project_name'
             });
 
             // Query contractors separately (PowerSync doesn't support JOINs)
@@ -96,7 +96,7 @@
             }
 
             // Verify user ownership if userId is set
-            if (userId && projectRow.user_id !== userId) {
+            if (userId && projectRow.created_by !== userId) {
                 console.log('[DATA] Active project belongs to different user');
                 return null;
             }
@@ -147,16 +147,21 @@
         if (!p) return null;
         return {
             id: p.id,
-            name: p.name || p.projectName || p.project_name || '',
-            projectName: p.name || p.projectName || p.project_name || '',
-            noabProjectNo: p.noabProjectNo || p.noab_project_no || '',
-            cnoSolicitationNo: p.cnoSolicitationNo || p.cno_solicitation_no || '',
+            projectName: p.projectName || p.project_name || '',
             location: p.location || '',
-            primeContractor: p.primeContractor || p.prime_contractor || '',
             status: p.status || 'active',
-            userId: p.userId || p.user_id || '',
-            logoUrl: p.logoUrl || p.logo_url || null,
-            logoThumbnail: p.logoThumbnail || p.logo_thumbnail || null,
+            primeContractor: p.primeContractor || p.prime_contractor || '',
+            engineer: p.engineer || '',
+            logo: p.logo || null,
+            cnoSolicitationNo: p.cnoSolicitationNo || p.cno_solicitation_no || '',
+            noabProjectNo: p.noabProjectNo || p.noab_project_no || '',
+            contractDuration: p.contractDuration || p.contract_duration || '',
+            noticeToProceed: p.noticeToProceed || p.notice_to_proceed || '',
+            expectedCompletion: p.expectedCompletion || p.expected_completion || '',
+            weatherDays: p.weatherDays || p.weather_days || 0,
+            defaultStartTime: p.defaultStartTime || p.default_start_time || '',
+            defaultEndTime: p.defaultEndTime || p.default_end_time || '',
+            createdBy: p.createdBy || p.created_by || '',
             contractors: p.contractors || []
         };
     }
@@ -171,8 +176,12 @@
             projectId: c.projectId || c.project_id || '',
             name: c.name || '',
             company: c.company || '',
+            abbreviation: c.abbreviation || '',
             type: c.type || 'sub',
-            status: c.status || 'active'
+            trades: c.trades || '',
+            status: c.status || 'active',
+            addedDate: c.addedDate || c.added_date || '',
+            removedDate: c.removedDate || c.removed_date || ''
         };
     }
 
@@ -440,19 +449,50 @@
     /**
      * Submit final report to PowerSync (auto-syncs with Supabase)
      * PowerSync handles offline queue — works offline now
-     * @param {Object} finalData - Report data including reportId and sections
+     * @param {Object} finalData - Report data including reportId and all fields
      * @returns {Promise<boolean>} Success status
      */
     async function submitFinalReport(finalData) {
         const {
             reportId,
-            sections,
+            activeReportId,
             projectId,
-            projectName,
-            projectNumber,
             reportDate,
-            weatherSummary,
-            overview
+            executiveSummary,
+            workPerformed,
+            materialsUsed,
+            delaysIssues,
+            inspectorNotes,
+            // Weather fields
+            generalCondition,
+            highTemp,
+            lowTemp,
+            precipitation,
+            windSpeed,
+            humidity,
+            // Has flags
+            hasWorkPerformed,
+            hasMaterials,
+            hasDelays,
+            hasVisitors,
+            hasSafety,
+            hasPhotos,
+            // JSON data
+            workPerformedJson,
+            materialsJson,
+            delaysJson,
+            visitorsJson,
+            safetyJson,
+            photosJson,
+            // Notes
+            workPerformedNotes,
+            materialsNotes,
+            delaysNotes,
+            visitorsNotes,
+            safetyNotes,
+            // PDF
+            pdfUrl,
+            pdfStoragePath
         } = finalData;
 
         try {
@@ -461,15 +501,46 @@
             // Build final report record for PowerSync
             const record = {
                 id: reportId || crypto.randomUUID(),
-                user_id: userId || '',
                 project_id: projectId || '',
+                active_report_id: activeReportId || '',
                 report_date: reportDate || new Date().toISOString().split('T')[0],
-                project_name: projectName || '',
-                project_number: projectNumber || '',
-                weather_summary: weatherSummary || '',
-                entries: JSON.stringify(sections || []),
-                overview: JSON.stringify(overview || {}),
-                submitted_at: new Date().toISOString()
+                submitted_at: new Date().toISOString(),
+                submitted_by: userId || '',
+                executive_summary: executiveSummary || '',
+                work_performed: workPerformed || '',
+                materials_used: materialsUsed || '',
+                delays_issues: delaysIssues || '',
+                inspector_notes: inspectorNotes || '',
+                // Weather fields
+                general_condition: generalCondition || '',
+                high_temp: highTemp || null,
+                low_temp: lowTemp || null,
+                precipitation: precipitation || '',
+                wind_speed: windSpeed || '',
+                humidity: humidity || '',
+                // Has flags
+                has_work_performed: hasWorkPerformed ? 1 : 0,
+                has_materials: hasMaterials ? 1 : 0,
+                has_delays: hasDelays ? 1 : 0,
+                has_visitors: hasVisitors ? 1 : 0,
+                has_safety: hasSafety ? 1 : 0,
+                has_photos: hasPhotos ? 1 : 0,
+                // JSON data
+                work_performed_json: workPerformedJson ? JSON.stringify(workPerformedJson) : '',
+                materials_json: materialsJson ? JSON.stringify(materialsJson) : '',
+                delays_json: delaysJson ? JSON.stringify(delaysJson) : '',
+                visitors_json: visitorsJson ? JSON.stringify(visitorsJson) : '',
+                safety_json: safetyJson ? JSON.stringify(safetyJson) : '',
+                photos_json: photosJson ? JSON.stringify(photosJson) : '',
+                // Notes
+                work_performed_notes: workPerformedNotes || '',
+                materials_notes: materialsNotes || '',
+                delays_notes: delaysNotes || '',
+                visitors_notes: visitorsNotes || '',
+                safety_notes: safetyNotes || '',
+                // PDF
+                pdf_url: pdfUrl || '',
+                pdf_storage_path: pdfStoragePath || ''
             };
 
             await window.PowerSyncClient.save('final_reports', record);

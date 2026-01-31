@@ -152,10 +152,10 @@ async function saveProjectToSupabase(project) {
         // 1. Upsert the project
         const projectData = toSupabaseProject(project);
 
-        // Add user_id from localStorage
+        // Add created_by from localStorage
         const userId = getStorageItem(STORAGE_KEYS.USER_ID);
         if (userId) {
-            projectData.user_id = userId;
+            projectData.created_by = userId;
         }
 
         const { error: projectError } = await supabaseClient
@@ -324,10 +324,10 @@ async function saveProject() {
     currentProject.weatherDays = parseInt(document.getElementById('weatherDays').value) || 0;
     currentProject.contractDayNo = parseInt(document.getElementById('contractDayNo').value) || '';
 
-    // Ensure user_id is set for IndexedDB filtering
+    // Ensure created_by is set for IndexedDB filtering
     const userId = getStorageItem(STORAGE_KEYS.USER_ID);
-    if (userId && !currentProject.user_id) {
-        currentProject.user_id = userId;
+    if (userId && !currentProject.created_by) {
+        currentProject.created_by = userId;
     }
 
     // Ensure created_at is set for sorting

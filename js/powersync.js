@@ -32,17 +32,23 @@ const userProfiles = new Table(
 
 const projects = new Table(
     {
-        user_id: column.text,
-        name: column.text,
-        project_number: column.text,
+        project_name: column.text,
         location: column.text,
-        client_name: column.text,
-        start_date: column.text,
         status: column.text,
-        logo_url: column.text,
-        settings: column.text, // JSON string
+        prime_contractor: column.text,
+        engineer: column.text,
+        logo: column.text,
+        cno_solicitation_no: column.text,
+        noab_project_no: column.text,
+        contract_duration: column.text,
+        notice_to_proceed: column.text,
+        expected_completion: column.text,
+        weather_days: column.integer,
+        default_start_time: column.text,
+        default_end_time: column.text,
         created_at: column.text,
-        updated_at: column.text
+        updated_at: column.text,
+        created_by: column.text
     },
     { name: 'projects' }
 );
@@ -51,41 +57,36 @@ const contractors = new Table(
     {
         project_id: column.text,
         name: column.text,
-        trade: column.text,
-        contact_name: column.text,
-        contact_phone: column.text,
-        contact_email: column.text,
+        company: column.text,
+        abbreviation: column.text,
+        type: column.text,
+        trades: column.text,
         status: column.text,
-        created_at: column.text,
-        updated_at: column.text
+        added_date: column.text,
+        removed_date: column.text,
+        created_at: column.text
     },
     { name: 'contractors' }
 );
 
 const activeReports = new Table(
     {
-        user_id: column.text,
         project_id: column.text,
+        device_id: column.text,
         report_date: column.text,
         status: column.text,
-        capture_mode: column.text,
-        weather_data: column.text, // JSON string
-        entries: column.text, // JSON string
-        overview: column.text, // JSON string
-        created_at: column.text,
-        updated_at: column.text
+        started_at: column.text,
+        started_by: column.text,
+        last_heartbeat: column.text
     },
     { name: 'active_reports' }
 );
 
 const aiRequests = new Table(
     {
-        user_id: column.text,
-        report_id: column.text,
-        entry_index: column.integer,
-        request_type: column.text,
-        input_data: column.text, // JSON string
-        status: column.text,
+        active_report_id: column.text,
+        request_payload: column.text, // JSON string
+        webhook_url: column.text,
         created_at: column.text
     },
     { name: 'ai_requests' }
@@ -93,9 +94,10 @@ const aiRequests = new Table(
 
 const aiResponses = new Table(
     {
-        request_id: column.text,
-        response_data: column.text, // JSON string
-        tokens_used: column.integer,
+        ai_request_id: column.text,
+        active_report_id: column.text,
+        generated_content: column.text,
+        raw_response: column.text, // JSON string
         created_at: column.text
     },
     { name: 'ai_responses' }
@@ -103,16 +105,46 @@ const aiResponses = new Table(
 
 const finalReports = new Table(
     {
-        user_id: column.text,
         project_id: column.text,
+        active_report_id: column.text,
         report_date: column.text,
-        project_name: column.text,
-        project_number: column.text,
-        weather_summary: column.text,
-        entries: column.text, // JSON string
-        overview: column.text, // JSON string
-        pdf_url: column.text,
         submitted_at: column.text,
+        submitted_by: column.text,
+        executive_summary: column.text,
+        work_performed: column.text,
+        materials_used: column.text,
+        delays_issues: column.text,
+        inspector_notes: column.text,
+        // Weather fields
+        general_condition: column.text,
+        high_temp: column.integer,
+        low_temp: column.integer,
+        precipitation: column.text,
+        wind_speed: column.text,
+        humidity: column.text,
+        // Has flags
+        has_work_performed: column.integer,
+        has_materials: column.integer,
+        has_delays: column.integer,
+        has_visitors: column.integer,
+        has_safety: column.integer,
+        has_photos: column.integer,
+        // JSON data fields
+        work_performed_json: column.text,
+        materials_json: column.text,
+        delays_json: column.text,
+        visitors_json: column.text,
+        safety_json: column.text,
+        photos_json: column.text,
+        // Notes fields
+        work_performed_notes: column.text,
+        materials_notes: column.text,
+        delays_notes: column.text,
+        visitors_notes: column.text,
+        safety_notes: column.text,
+        // PDF fields
+        pdf_url: column.text,
+        pdf_storage_path: column.text,
         created_at: column.text
     },
     { name: 'final_reports' }
@@ -120,15 +152,14 @@ const finalReports = new Table(
 
 const photos = new Table(
     {
-        user_id: column.text,
-        report_id: column.text,
-        entry_index: column.integer,
+        active_report_id: column.text,
+        photo_url: column.text,
         storage_path: column.text,
-        thumbnail_path: column.text,
         caption: column.text,
-        gps_lat: column.real,
-        gps_lng: column.real,
+        photo_type: column.text,
         taken_at: column.text,
+        location_lat: column.real,
+        location_lng: column.real,
         created_at: column.text
     },
     { name: 'photos' }
