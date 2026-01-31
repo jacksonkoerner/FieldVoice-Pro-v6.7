@@ -1074,6 +1074,55 @@
             }
         }
 
+        // ============ PROFILE SETUP PROMPT ============
+
+        /**
+         * Show prompt for first-time users who haven't set up their profile
+         */
+        function showProfileSetupPrompt() {
+            // Don't show if modal already exists
+            if (document.getElementById('profile-setup-modal')) return;
+
+            const modal = document.createElement('div');
+            modal.id = 'profile-setup-modal';
+            modal.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-user-edit text-amber-600 text-2xl"></i>
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-900 mb-2">Set Up Your Profile</h3>
+                        <p class="text-gray-600 mb-6">Before creating reports, please set up your inspector profile. This information will appear on your daily reports.</p>
+                        <div class="flex gap-3">
+                            <button onclick="dismissProfilePrompt()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">
+                                Later
+                            </button>
+                            <button onclick="goToSettings()" class="flex-1 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600">
+                                Set Up Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        /**
+         * Dismiss the profile setup prompt
+         */
+        function dismissProfilePrompt() {
+            const modal = document.getElementById('profile-setup-modal');
+            if (modal) modal.remove();
+        }
+
+        /**
+         * Navigate to settings page for profile setup
+         */
+        function goToSettings() {
+            window.location.href = 'settings.html';
+        }
+
         // ============ CANCEL REPORT FUNCTIONS ============
 
         /**
@@ -2114,97 +2163,6 @@
         }
 
         // ============ PROJECT & CONTRACTOR LOADING ============
-        /* DEPRECATED — now using window.dataLayer.loadActiveProject()
-        async function loadActiveProject() {
-            // v6: Use getStorageItem with STORAGE_KEYS.ACTIVE_PROJECT_ID
-            const activeId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
-            if (!activeId) {
-                activeProject = null;
-                projectContractors = [];
-                return null;
-            }
-
-            try {
-                // Fetch project from Supabase
-                const { data: projectRow, error: projectError } = await supabaseClient
-                    .from('projects')
-                    .select('*')
-                    .eq('id', activeId)
-                    .single();
-
-                if (projectError || !projectRow) {
-                    console.error('Failed to load project from Supabase:', projectError);
-                    activeProject = null;
-                    projectContractors = [];
-                    return null;
-                }
-
-                activeProject = fromSupabaseProject(projectRow);
-
-                // Fetch contractors for this project
-                const { data: contractorRows, error: contractorError } = await supabaseClient
-                    .from('contractors')
-                    .select('*')
-                    .eq('project_id', activeId);
-
-                if (!contractorError && contractorRows) {
-                    activeProject.contractors = contractorRows.map(fromSupabaseContractor);
-                    // Sort: prime contractors first, then subcontractors
-                    projectContractors = [...activeProject.contractors].sort((a, b) => {
-                        if (a.type === 'prime' && b.type !== 'prime') return -1;
-                        if (a.type !== 'prime' && b.type === 'prime') return 1;
-                        return 0;
-                    });
-                } else {
-                    projectContractors = [];
-                }
-
-                // v6: Equipment is now entered per-report, not loaded from project
-                // Equipment functions removed - see renderEquipmentInput() for per-report entry
-                activeProject.equipment = [];
-
-                return activeProject;
-            } catch (e) {
-                console.error('Failed to load project:', e);
-                activeProject = null;
-                projectContractors = [];
-                return null;
-            }
-        }
-        */
-
-        /* DEPRECATED — now using window.dataLayer.loadUserSettings()
-        async function loadUserSettings() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('user_profiles')
-                    .select('*')
-                    .limit(1)
-                    .single();
-
-                if (error && error.code !== 'PGRST116') {
-                    console.error('Failed to load user settings:', error);
-                    return null;
-                }
-
-                if (data) {
-                    userSettings = {
-                        id: data.id,
-                        full_name: data.full_name || '',
-                        title: data.title || '',
-                        company: data.company || '',
-                        email: data.email || '',
-                        phone: data.phone || ''
-                    };
-                    return userSettings;
-                }
-                return null;
-            } catch (e) {
-                console.error('Failed to load user settings:', e);
-                return null;
-            }
-        }
-        */
 
         function getTodayDateFormatted() {
             return new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
@@ -4800,6 +4758,13 @@
                     5000
                 );
 
+                // Check if user has set up their profile (first-time user prompt)
+                if (!userSettings || !userSettings.fullName || userSettings.fullName.trim() === '') {
+                    hideLoadingOverlay();
+                    showProfileSetupPrompt();
+                    // Don't return - let user dismiss and continue if they want
+                }
+
                 // v6: Initialize sync manager for real-time backup
                 try {
                     initSyncManager();
@@ -4916,6 +4881,9 @@
         });
 
         // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============
+        window.showProfileSetupPrompt = showProfileSetupPrompt;
+        window.dismissProfilePrompt = dismissProfilePrompt;
+        window.goToSettings = goToSettings;
         window.showCancelReportModal = showCancelReportModal;
         window.hideCancelReportModal = hideCancelReportModal;
         window.confirmCancelReport = confirmCancelReport;
