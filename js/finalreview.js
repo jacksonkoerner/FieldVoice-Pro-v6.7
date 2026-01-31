@@ -110,7 +110,7 @@ async function loadUserSettings() {
         userSettings = {
             fullName: data.full_name || '',
             company: data.company || '',
-            title: data.title || '',
+            title: data.title || data.role || '',  // Support legacy 'role' field
             email: data.email || '',
             phone: data.phone || ''
         };
