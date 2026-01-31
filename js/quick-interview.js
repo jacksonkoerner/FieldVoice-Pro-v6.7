@@ -4871,9 +4871,14 @@
                         console.warn('[INIT] Failed to acquire lock - may have been taken by another device');
                     }
                 }
+
+                // Initialize PWA features (service worker, offline banner, etc.)
+                initPWA();
             } catch (error) {
                 console.error('Initialization failed:', error);
                 hideLoadingOverlay();
                 showToast('Failed to load data. Please refresh.', 'error');
+                // Still init PWA for offline support
+                initPWA();
             }
         });

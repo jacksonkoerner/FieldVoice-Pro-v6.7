@@ -135,17 +135,17 @@ const photos = new Table(
     { name: 'photos' }
 );
 
+// Schema expects an object where keys are table names and values are Table instances
+// The table name in the key must match the 'name' option in each Table definition
 const powerSyncSchema = new Schema({
-    tables: [
-        userProfiles,
-        projects,
-        contractors,
-        activeReports,
-        aiRequests,
-        aiResponses,
-        finalReports,
-        photos
-    ]
+    user_profiles: userProfiles,
+    projects: projects,
+    contractors: contractors,
+    active_reports: activeReports,
+    ai_requests: aiRequests,
+    ai_responses: aiResponses,
+    final_reports: finalReports,
+    photos: photos
 });
 
 // ============ STATE ============
