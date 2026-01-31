@@ -743,6 +743,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Sync weather
         syncWeather();
+
+        // Initialize PWA features (service worker, offline banner, etc.)
+        initPWA({ onOnline: updateDraftsSection });
     } catch (err) {
         console.error('Failed to initialize:', err);
         // Still update UI with whatever we have
@@ -751,5 +754,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateReportStatus();
         updateDraftsSection();
         syncWeather();
+        // Still init PWA for offline support
+        initPWA({ onOnline: updateDraftsSection });
     }
 });
