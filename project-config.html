@@ -21,13 +21,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Main entry point - loads Supabase and PowerSync via Vite -->
+    <!-- Main entry point - loads all shared utilities via Vite -->
     <script type="module" src="/js/main.js"></script>
-
-    <script src="./js/storage-keys.js"></script>
-    <script src="./js/supabase-utils.js"></script>
-    <script src="./js/pwa-utils.js"></script>
-    <script src="./js/ui-utils.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -502,10 +497,8 @@
     </div>
 
 
-    <script src="./js/indexeddb-utils.js"></script>
-    <script src="./js/data-layer.js"></script>
-    <script src="./js/media-utils.js"></script>
-    <script src="./js/project-config.js"></script>
+    <!-- Page-specific JavaScript -->
+    <script type="module" src="./js/project-config.js"></script>
 
     <!-- Offline Banner -->
     <div id="offline-banner" class="fixed top-0 left-0 right-0 bg-yellow-500 text-yellow-900 text-center py-2 px-4 font-bold text-sm z-[9999] transform -translate-y-full transition-transform duration-300" style="display: none;">
@@ -513,6 +506,6 @@
     </div>
 
     <!-- Initialize PWA features -->
-    <script>initPWA();</script>
+    <script type="module">initPWA();</script>
 </body>
 </html>

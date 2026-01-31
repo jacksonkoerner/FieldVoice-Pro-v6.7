@@ -19,7 +19,10 @@
     <meta name="apple-mobile-web-app-title" content="FieldVoice">
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="./js/pwa-utils.js"></script>
+
+    <!-- Main entry point - loads all shared utilities via Vite -->
+    <script type="module" src="/js/main.js"></script>
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -1003,6 +1006,6 @@
     </div>
 
     <!-- Initialize PWA features -->
-    <script>initPWA();</script>
+    <script type="module">initPWA();</script>
 </body>
 </html>

@@ -1,8 +1,22 @@
 // FieldVoice Pro - Main Entry Point
 // This module initializes Supabase and PowerSync before other scripts run
+// All shared utilities are imported here so Vite bundles them
 
 import { createClient } from '@supabase/supabase-js';
 import { initPowerSync, getSyncStatus } from './powersync.js';
+
+// ============ SHARED UTILITIES ============
+// These are side-effect imports - they set up window globals
+import './storage-keys.js';
+import './indexeddb-utils.js';
+import './ui-utils.js';
+import './pwa-utils.js';
+import './supabase-utils.js';
+import './report-rules.js';
+import './lock-manager.js';
+import './media-utils.js';
+import './data-layer.js';
+import './sync-manager.js';
 
 // ============ SUPABASE INITIALIZATION ============
 const SUPABASE_URL = 'https://wejwhplqnhciyxbinivx.supabase.co';
