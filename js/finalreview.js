@@ -149,7 +149,7 @@ async function loadReport() {
         // If we have a report ID from URL, load directly
         if (reportIdParam) {
             const { data, error } = await supabaseClient
-                .from('reports')
+                .from('active_reports')
                 .select('*')
                 .eq('id', reportIdParam)
                 .single();
@@ -162,7 +162,7 @@ async function loadReport() {
         // Otherwise, try to find by project and date
         if (!reportRow) {
             const { data: existingReport, error: reportError } = await supabaseClient
-                .from('reports')
+                .from('active_reports')
                 .select('*')
                 .eq('project_id', activeProject.id)
                 .eq('report_date', reportDateStr)
@@ -1194,9 +1194,9 @@ async function submitReport() {
             }
         }
 
-        // 2. Update reports table status to 'submitted'
+        // 2. Update active_reports table status to 'submitted'
         const { error: reportError } = await supabaseClient
-            .from('reports')
+            .from('active_reports')
             .update({
                 status: 'submitted',
                 submitted_at: submittedAt,

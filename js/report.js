@@ -355,7 +355,7 @@
             // If we have a reportId param, try loading by ID first (most reliable)
             if (reportIdParam) {
                 const result = await supabaseClient
-                    .from('reports')
+                    .from('active_reports')
                     .select('*')
                     .eq('id', reportIdParam)
                     .single();
@@ -367,7 +367,7 @@
             // Fall back to project_id + date lookup
             if (!reportRow && activeProject) {
                 const result = await supabaseClient
-                    .from('reports')
+                    .from('active_reports')
                     .select('*')
                     .eq('project_id', activeProject.id)
                     .eq('report_date', reportDateStr)
@@ -1632,7 +1632,7 @@
             if (!reportId) {
                 // Check if a report already exists for this project+date before generating new ID
                 const { data: existingReport } = await supabaseClient
-                    .from('reports')
+                    .from('active_reports')
                     .select('id')
                     .eq('project_id', activeProject.id)
                     .eq('report_date', reportDateStr)
@@ -1651,7 +1651,7 @@
             };
 
             const { error: reportError } = await supabaseClient
-                .from('reports')
+                .from('active_reports')
                 .upsert(reportData, { onConflict: 'id' });
 
             if (reportError) {

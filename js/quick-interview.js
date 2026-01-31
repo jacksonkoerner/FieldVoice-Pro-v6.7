@@ -541,7 +541,7 @@
 
             try {
                 const { data: reportData, error } = await supabaseClient
-                    .from('reports')
+                    .from('active_reports')
                     .select('id, status')
                     .eq('project_id', activeProjectId)
                     .eq('report_date', today)
@@ -1188,9 +1188,9 @@
                     .delete()
                     .eq('active_report_id', reportId);
 
-                // 7. Delete from reports (last, as it's the parent)
+                // 7. Delete from active_reports (last, as it's the parent)
                 await supabaseClient
-                    .from('reports')
+                    .from('active_reports')
                     .delete()
                     .eq('id', reportId);
 
@@ -2970,7 +2970,7 @@
             try {
                 // Query for existing report for this project and date
                 const { data: reportRow, error: reportError } = await supabaseClient
-                    .from('reports')
+                    .from('active_reports')
                     .select('*')
                     .eq('project_id', activeProject.id)
                     .eq('report_date', todayStr)
@@ -3204,7 +3204,7 @@
                 if (!reportId) {
                     // Check if a report already exists for this project+date before generating new ID
                     const { data: existingReport } = await supabaseClient
-                        .from('reports')
+                        .from('active_reports')
                         .select('id')
                         .eq('project_id', activeProject.id)
                         .eq('report_date', todayStr)
@@ -3225,7 +3225,7 @@
                 };
 
                 const { error: reportError } = await supabaseClient
-                    .from('reports')
+                    .from('active_reports')
                     .upsert(reportData, { onConflict: 'id' });
 
                 if (reportError) {

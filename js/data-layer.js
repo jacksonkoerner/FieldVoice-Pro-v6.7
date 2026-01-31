@@ -421,7 +421,7 @@
             const userId = getStorageItem(STORAGE_KEYS.USER_ID);
 
             let query = supabaseClient
-                .from('reports')
+                .from('final_reports')
                 .select('*, projects(id, project_name)')
                 .eq('status', 'submitted')
                 .order('created_at', { ascending: false })
