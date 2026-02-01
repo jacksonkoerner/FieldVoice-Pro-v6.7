@@ -553,14 +553,17 @@ export async function initPowerSync() {
             // Use Vite's base URL so paths work in both local dev (/) and GitHub Pages (/FieldVoice-Pro-v6.7/)
             const basePath = import.meta.env.BASE_URL || '/';
 
-            // Create database factory with explicit worker path
-            // The worker files are deployed to @powersync/worker/ by the copy-assets script
+            // Create database factory
+            // NOTE: Workers disabled because GitHub Pages lacks COOP/COEP headers
+            // needed for SharedArrayBuffer. SQLite runs on main thread instead.
             const dbFactory = new WASQLiteOpenFactory({
                 dbFilename: 'fieldvoice.db',
-                worker: `${basePath}@powersync/worker/WASQLiteDB.umd.js`
+                flags: {
+                    useWebWorker: false  // GitHub Pages doesn't support SharedArrayBuffer
+                }
             });
 
-            console.log(`[PowerSync] (#${attemptId}) Database factory created with worker path: ${basePath}@powersync/worker/WASQLiteDB.umd.js`);
+            console.log(`[PowerSync] (#${attemptId}) Database factory created (workers disabled for GitHub Pages compatibility)`);
 
             // Create PowerSync database
             // NOTE: useWebWorker disabled because GitHub Pages lacks COOP/COEP headers
