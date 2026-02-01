@@ -6,7 +6,7 @@
   "scripts": {
     "copy-powersync": "npx powersync-web copy-assets --output public",
     "prebuild": "npm run copy-powersync",
-    "build": "vite build",
+    "build": "npm run copy-powersync && tailwindcss -i ./src/input.css -o ./dist/output.css && vite build",
     "dev": "npm run copy-powersync && vite",
     "preview": "vite preview"
   },
@@ -16,7 +16,10 @@
     "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.24",
+    "postcss": "^8.5.6",
     "sharp": "^0.34.5",
+    "tailwindcss": "^3.4.19",
     "vite": "^5.0.0",
     "vite-plugin-static-copy": "^3.2.0",
     "vite-plugin-top-level-await": "^1.4.0",
