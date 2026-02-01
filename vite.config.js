@@ -21,6 +21,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: 'index.html',
+        auth: 'auth.html',
         settings: 'settings.html',
         projects: 'projects.html',
         'project-config': 'project-config.html',

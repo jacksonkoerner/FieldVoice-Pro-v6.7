@@ -1068,6 +1068,9 @@ function handleMissingFieldInput(e) {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', async () => {
+    // Check auth first
+    if (!await requireAuth()) return;
+
     // Initialize IndexedDB for photo storage (projects now use PowerSync)
     try {
         if (window.idb && typeof window.idb.initDB === 'function') {

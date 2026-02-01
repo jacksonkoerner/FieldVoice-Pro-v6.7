@@ -4722,6 +4722,9 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            // Check auth first
+            if (!await requireAuth()) return;
+
             // Helper: Load data with timeout to prevent UI from hanging
             async function loadWithTimeout(loader, name, defaultValue, timeoutMs = 5000) {
                 try {

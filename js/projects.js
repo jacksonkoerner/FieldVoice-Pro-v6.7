@@ -227,6 +227,9 @@ function updateActiveProjectBanner(projects) {
 
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', async () => {
+    // Check auth first
+    if (!await requireAuth()) return;
+
     // Get current active project
     activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
 

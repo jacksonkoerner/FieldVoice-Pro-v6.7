@@ -220,7 +220,10 @@ function deleteDraft(key) {
 }
 
 // ============ INIT ============
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check auth first
+    if (!await requireAuth()) return;
+
     renderDrafts();
 
     // Initialize PWA features (service worker, offline banner, etc.)
