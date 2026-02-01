@@ -516,6 +516,31 @@ function updateDraftsSection() {
     }
 }
 
+// ============ SYNC STATUS BADGE ============
+function updateSyncStatusBadge() {
+    const badge = document.getElementById('sync-status');
+    if (!badge) return;
+
+    const status = window.PowerSyncClient?.getStatus?.() || { connected: false };
+
+    if (status.connected) {
+        badge.className = 'fixed top-16 right-4 px-3 py-1 rounded-full text-xs font-medium z-40 bg-green-100 text-green-800';
+        badge.innerHTML = '<i class="fas fa-circle text-green-500 mr-1" style="font-size: 6px; vertical-align: middle;"></i>Synced';
+    } else if (status.syncing) {
+        badge.className = 'fixed top-16 right-4 px-3 py-1 rounded-full text-xs font-medium z-40 bg-blue-100 text-blue-800';
+        badge.innerHTML = '<i class="fas fa-sync-alt fa-spin mr-1"></i>Syncing...';
+    } else if (status.error) {
+        badge.className = 'fixed top-16 right-4 px-3 py-1 rounded-full text-xs font-medium z-40 bg-red-100 text-red-800';
+        badge.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i>Sync Error';
+    } else {
+        badge.className = 'fixed top-16 right-4 px-3 py-1 rounded-full text-xs font-medium z-40 bg-amber-100 text-amber-800';
+        badge.innerHTML = '<i class="fas fa-circle text-amber-500 mr-1" style="font-size: 6px; vertical-align: middle;"></i>Local Only';
+    }
+}
+
+// Update sync status every 5 seconds
+setInterval(updateSyncStatusBadge, 5000);
+
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', async () => {
     if (shouldShowOnboarding()) {
@@ -660,6 +685,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (pwaErr) {
         console.warn('[INIT] PWA init failed:', pwaErr);
     }
+
+    // Update sync status badge on page load (after a brief delay to let PowerSync initialize)
+    setTimeout(updateSyncStatusBadge, 1000);
 
     console.log('[INIT] Dashboard initialization complete');
 });

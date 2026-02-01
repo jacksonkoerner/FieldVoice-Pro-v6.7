@@ -194,6 +194,34 @@ let syncStatus = {
     error: null
 };
 
+// ============ CONNECT WITH TIMEOUT ============
+// Wraps connect() with explicit timeout and detailed error catching
+async function connectWithTimeout(db, connector, timeoutMs = 10000) {
+    return new Promise(async (resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error(`connect() timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+
+        try {
+            console.log('[PowerSync] Starting connect with', timeoutMs, 'ms timeout');
+            console.log('[PowerSync] Token preview:', POWERSYNC_DEV_TOKEN.substring(0, 50) + '...');
+            console.log('[PowerSync] Token length:', POWERSYNC_DEV_TOKEN.length);
+
+            await db.connect(connector);
+            clearTimeout(timer);
+            console.log('[PowerSync] connect() succeeded');
+            resolve(true);
+        } catch (e) {
+            clearTimeout(timer);
+            console.error('[PowerSync] connect() failed with error:', e.message);
+            console.error('[PowerSync] Error stack:', e.stack);
+            console.error('[PowerSync] Error name:', e.name);
+            console.error('[PowerSync] Full error object:', e);
+            reject(e);
+        }
+    });
+}
+
 // ============ PAGE LIFECYCLE CLEANUP ============
 // Clean up PowerSync connection when leaving the page to prevent issues on next page load
 let cleanupRegistered = false;
@@ -455,7 +483,7 @@ export async function initPowerSync() {
 
                 try {
                     // DEBUG: Detailed connect() logging
-                    console.log(`[PowerSync] (#${attemptId}) About to call db.connect() [attempt ${retry + 1}]...`);
+                    console.log(`[PowerSync] (#${attemptId}) About to call connectWithTimeout() [attempt ${retry + 1}]...`);
                     console.log(`[PowerSync] (#${attemptId}) Database state:`, {
                         exists: !!powerSyncDb,
                         connected: powerSyncDb?.connected,
@@ -463,17 +491,9 @@ export async function initPowerSync() {
                     });
 
                     const connectStartTime = Date.now();
-                    const connectPromise = powerSyncDb.connect(connector);
-                    console.log(`[PowerSync] (#${attemptId}) connect() called, waiting for completion...`);
 
-                    // Add a timeout wrapper to detect hangs
-                    const timeoutPromise = new Promise((_, reject) => {
-                        setTimeout(() => {
-                            reject(new Error('connect() timed out after 30 seconds'));
-                        }, 30000);
-                    });
-
-                    await Promise.race([connectPromise, timeoutPromise]);
+                    // Use improved connectWithTimeout with 10 second timeout (instead of 30)
+                    await connectWithTimeout(powerSyncDb, connector, 10000);
 
                     const connectDuration = Date.now() - connectStartTime;
                     console.log(`[PowerSync] (#${attemptId}) connect() resolved successfully in ${connectDuration}ms on attempt ${retry + 1}`);
@@ -494,7 +514,7 @@ export async function initPowerSync() {
                         console.log(`[PowerSync] (#${attemptId}) Possible stale connection detected, will retry...`);
                     }
                     if (errorMsg.includes('timeout')) {
-                        console.log(`[PowerSync] (#${attemptId}) Connect timed out - may be WebSocket issue`);
+                        console.log(`[PowerSync] (#${attemptId}) Connect timed out - may be WebSocket issue or expired token`);
                     }
                 }
             }
@@ -567,19 +587,11 @@ async function attemptReconnect(attemptId) {
     const connector = new SupabaseConnector(window.supabaseClient);
 
     try {
-        console.log(`[PowerSync] (#${attemptId}) Reconnect - About to call db.connect()...`);
+        console.log(`[PowerSync] (#${attemptId}) Reconnect - About to call connectWithTimeout()...`);
         const connectStartTime = Date.now();
-        const connectPromise = powerSyncDb.connect(connector);
-        console.log(`[PowerSync] (#${attemptId}) Reconnect - connect() called, waiting for completion...`);
 
-        // Add a timeout wrapper to detect hangs
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => {
-                reject(new Error('Reconnect connect() timed out after 30 seconds'));
-            }, 30000);
-        });
-
-        await Promise.race([connectPromise, timeoutPromise]);
+        // Use improved connectWithTimeout with 10 second timeout
+        await connectWithTimeout(powerSyncDb, connector, 10000);
 
         const connectDuration = Date.now() - connectStartTime;
         console.log(`[PowerSync] (#${attemptId}) Reconnection successful in ${connectDuration}ms!`);
