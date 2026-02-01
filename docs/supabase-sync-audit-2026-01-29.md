@@ -2,7 +2,7 @@
 
 **Date:** 2026-01-29  
 **Project:** FieldVoice-Pro-v6.6  
-**Supabase Ref:** wejwhplqnhciyxbinivx  
+**Supabase Ref:** lpzjiporaieedxdsufcq  
 **Audit Type:** Schema vs localStorage sync gap analysis
 
 ---

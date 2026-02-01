@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-01-29  
 **Version:** 6.6  
-**Supabase Project:** FieldVoice-Pro-v66 (ref: `wejwhplqnhciyxbinivx`)
+**Supabase Project:** FieldVoice-Pro-v67 (ref: `lpzjiporaieedxdsufcq`)
 
 ---
 
