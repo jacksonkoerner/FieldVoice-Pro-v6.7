@@ -259,9 +259,16 @@ class SupabaseConnector {
 
     // Get credentials for PowerSync connection using Supabase Auth
     async fetchCredentials() {
+        console.log('[PowerSync] fetchCredentials called');
+
         try {
-            // Get the current Supabase session
-            const { data: { session }, error } = await this.supabaseClient.auth.getSession();
+            // Use window.supabaseClient since it's set globally in main.js
+            const supabase = window.supabaseClient || this.supabaseClient;
+            if (!supabase) {
+                throw new Error('Supabase client not available');
+            }
+
+            const { data: { session }, error } = await supabase.auth.getSession();
 
             if (error) {
                 console.error('[PowerSync] Auth session error:', error);
@@ -389,6 +396,18 @@ export async function initPowerSync() {
     console.log(`[PowerSync] (#${attemptId}) Waiting 500ms for any previous page cleanup...`);
     await new Promise(r => setTimeout(r, 500));
     console.log(`[PowerSync] (#${attemptId}) Starting initialization after delay...`);
+
+    // Check for auth session before proceeding
+    const supabase = window.supabaseClient;
+    if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            console.warn('[PowerSync] No auth session, skipping PowerSync init');
+            syncStatus.connected = false;
+            return null;
+        }
+        console.log('[PowerSync] Auth session found for:', session.user.email);
+    }
 
     // Force close any existing connections before proceeding (handles stale state from navigation)
     if (typeof powerSyncDb !== 'undefined' && powerSyncDb) {
