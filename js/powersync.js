@@ -4,13 +4,8 @@
 import { PowerSyncDatabase, Schema, Table, column } from '@powersync/web';
 
 // ============ POWERSYNC CREDENTIALS ============
-// NOTE: Development token expires every ~12 hours
-// Get a new token from: https://powersync.journeyapps.com/ → Your Instance → Connect
+// PowerSync uses Supabase Auth tokens for authentication
 const POWERSYNC_URL = 'https://697d5b91d930100f50158b4f.powersync.journeyapps.com';
-
-// Development token - UPDATE THIS WHEN IT EXPIRES
-// Last updated: 2026-01-31 (evening)
-const POWERSYNC_DEV_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6InBvd2Vyc3luYy1kZXYtMzIyM2Q0ZTMifQ.eyJzdWIiOiJrZXkiLCJpYXQiOjE3Njk4OTk4OTMsImlzcyI6Imh0dHBzOi8vcG93ZXJzeW5jLWFwaS5qb3VybmV5YXBwcy5jb20iLCJhdWQiOiJodHRwczovLzY5N2Q1YjkxZDkzMDEwMGY1MDE1OGI0Zi5wb3dlcnN5bmMuam91cm5leWFwcHMuY29tIiwiZXhwIjoxNzY5OTQzMDkzfQ.szL-8LbGvgx2R-QxqE0RMAMfdk7RL7oRb5L1ktBVJYLD3RQBFwn2nquj8WI6_wQIvH_1wuIhgnrVOEN3Q8cOSryVWGqXw1MtO7LMCnyeb24ikDiBm6BCGutCAg_suFk-o4Gyx0JrDeSr02lI-bNGOPBmiIGRzjRbsvh2TkMi8ZtlbHFILb5e9BXc91IBodocTHJOoi4a7ipKizbPQScrj-W2acrDHLwgkK_bTgXHQdohc-iiL6xxts9lKwd7FQ4YDlyDPNhU0jcOC3p7K91glEVRNgUwuqeP7aZbMgFnR_DNuX-eDWPP9INwaESzMXvsP7aBpOTTjBQbh-LkysODdA';
 
 // ============ POWERSYNC SCHEMA ============
 // Define all tables that sync with Supabase
@@ -204,8 +199,6 @@ async function connectWithTimeout(db, connector, timeoutMs = 10000) {
 
         try {
             console.log('[PowerSync] Starting connect with', timeoutMs, 'ms timeout');
-            console.log('[PowerSync] Token preview:', POWERSYNC_DEV_TOKEN.substring(0, 50) + '...');
-            console.log('[PowerSync] Token length:', POWERSYNC_DEV_TOKEN.length);
 
             await db.connect(connector);
             clearTimeout(timer);
@@ -264,14 +257,33 @@ class SupabaseConnector {
         this.supabaseClient = supabaseClient;
     }
 
-    // Get credentials for PowerSync connection
+    // Get credentials for PowerSync connection using Supabase Auth
     async fetchCredentials() {
-        // For development, use the static dev token
-        // In production, this would get a JWT from Supabase auth
-        return {
-            endpoint: POWERSYNC_URL,
-            token: POWERSYNC_DEV_TOKEN
-        };
+        try {
+            // Get the current Supabase session
+            const { data: { session }, error } = await this.supabaseClient.auth.getSession();
+
+            if (error) {
+                console.error('[PowerSync] Auth session error:', error);
+                throw error;
+            }
+
+            if (!session) {
+                console.warn('[PowerSync] No auth session found');
+                throw new Error('Not authenticated');
+            }
+
+            console.log('[PowerSync] Using auth token for user:', session.user.email);
+            console.log('[PowerSync] Token expires:', new Date(session.expires_at * 1000).toISOString());
+
+            return {
+                endpoint: POWERSYNC_URL,
+                token: session.access_token
+            };
+        } catch (e) {
+            console.error('[PowerSync] fetchCredentials failed:', e);
+            throw e;
+        }
     }
 
     // Upload local changes to Supabase

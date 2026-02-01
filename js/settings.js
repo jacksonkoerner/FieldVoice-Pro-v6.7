@@ -523,7 +523,10 @@ async function resetAllData() {
 }
 
 // ============ INIT ============
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check auth first
+    if (!await requireAuth()) return;
+
     // Get all form input fields
     const inputFields = [
         document.getElementById('inspectorName'),
@@ -561,9 +564,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load settings from PowerSync (or scratch pad if unsaved changes exist)
     loadSettings();
 
+    // Show account info (email)
+    showAccountInfo();
+
     // Initialize PWA features (service worker, offline banner, etc.)
     initPWA();
 });
+
+// ============ LOGOUT ============
+
+/**
+ * Sign out the current user and redirect to login page
+ */
+async function logout() {
+    try {
+        await window.supabaseClient.auth.signOut();
+        console.log('[AUTH] Logged out');
+        window.location.href = 'auth.html';
+    } catch (e) {
+        console.error('[AUTH] Logout error:', e);
+        // Force redirect anyway
+        window.location.href = 'auth.html';
+    }
+}
+
+/**
+ * Display current account info
+ */
+async function showAccountInfo() {
+    try {
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        const accountInfoEl = document.getElementById('account-info');
+        if (session && accountInfoEl) {
+            accountInfoEl.innerHTML = `
+                <p class="flex items-center gap-2">
+                    <i class="fas fa-envelope text-slate-400"></i>
+                    <span class="font-medium">${session.user.email}</span>
+                </p>
+            `;
+        }
+    } catch (e) {
+        console.warn('[AUTH] Failed to get account info:', e);
+    }
+}
 
 // ============ EXPOSE TO WINDOW FOR ONCLICK HANDLERS ============
 window.saveSettings = saveSettings;
@@ -572,3 +615,4 @@ window.refreshApp = refreshApp;
 window.hideRefreshModal = hideRefreshModal;
 window.executeRefresh = executeRefresh;
 window.resetAllData = resetAllData;
+window.logout = logout;

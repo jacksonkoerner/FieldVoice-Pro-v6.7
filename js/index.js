@@ -543,6 +543,9 @@ setInterval(updateSyncStatusBadge, 5000);
 
 // ============ INIT ============
 document.addEventListener('DOMContentLoaded', async () => {
+    // Check auth first
+    if (!await requireAuth()) return;
+
     if (shouldShowOnboarding()) {
         window.location.href = 'permissions.html';
         return;

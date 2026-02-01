@@ -686,10 +686,48 @@ function toSupabaseEquipment(equipment, projectId) {
 }
 
 // ============================================================================
+// AUTH HELPERS
+// ============================================================================
+
+/**
+ * Check if user is authenticated, redirect to login if not
+ * @returns {Promise<boolean>} True if authenticated, false otherwise
+ */
+async function requireAuth() {
+    try {
+        // Wait for Supabase client to be ready
+        let attempts = 0;
+        while (!window.supabaseClient && attempts < 20) {
+            await new Promise(r => setTimeout(r, 100));
+            attempts++;
+        }
+
+        if (!window.supabaseClient) {
+            console.error('[AUTH] Supabase client not available');
+            window.location.href = 'auth.html';
+            return false;
+        }
+
+        const { data: { session } } = await window.supabaseClient.auth.getSession();
+        if (!session) {
+            console.log('[AUTH] No session, redirecting to login');
+            window.location.href = 'auth.html';
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.error('[AUTH] Auth check failed:', e);
+        window.location.href = 'auth.html';
+        return false;
+    }
+}
+
+// ============================================================================
 // GLOBAL EXPORTS
 // ============================================================================
 // Make functions globally available (loaded as regular script, not ES module)
 
+window.requireAuth = requireAuth;
 window.fromSupabaseProject = fromSupabaseProject;
 window.toSupabaseProject = toSupabaseProject;
 window.fromSupabaseContractor = fromSupabaseContractor;
