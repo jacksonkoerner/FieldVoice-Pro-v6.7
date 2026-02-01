@@ -185,12 +185,49 @@ const powerSyncSchema = new Schema({
 let powerSyncDb = null;
 let powerSyncInitPromise = null;
 let isConnecting = false; // Track if we're in the middle of connecting
+let isDisconnecting = false; // Track if we're in the middle of disconnecting
+let connectionAttemptCount = 0; // Track connection attempts for debugging
 let syncStatus = {
     connected: false,
     syncing: false,
     lastSyncTime: null,
     error: null
 };
+
+// ============ PAGE LIFECYCLE CLEANUP ============
+// Clean up PowerSync connection when leaving the page to prevent issues on next page load
+let cleanupRegistered = false;
+
+function registerPageCleanup() {
+    if (cleanupRegistered) return;
+    cleanupRegistered = true;
+
+    window.addEventListener('beforeunload', () => {
+        console.log('[PowerSync] Page unload detected, cleaning up...');
+        // Mark as disconnecting to prevent new operations
+        isDisconnecting = true;
+
+        // Attempt quick disconnect - this may not complete but helps
+        if (powerSyncDb) {
+            try {
+                // Use disconnect() to close WebSocket connection
+                // Note: This is best-effort during page unload
+                powerSyncDb.disconnect();
+                console.log('[PowerSync] Disconnect initiated during page unload');
+            } catch (e) {
+                console.warn('[PowerSync] Disconnect during unload failed:', e);
+            }
+        }
+    });
+
+    // Also handle page hide (for mobile browsers that may not fire beforeunload)
+    window.addEventListener('pagehide', () => {
+        console.log('[PowerSync] Page hide detected');
+        isDisconnecting = true;
+    });
+
+    console.log('[PowerSync] Page cleanup handlers registered');
+}
 
 // ============ SUPABASE CONNECTOR ============
 // Handles authentication and upload queue for PowerSync
@@ -274,21 +311,53 @@ class SupabaseConnector {
 
 // ============ INITIALIZATION ============
 export async function initPowerSync() {
+    connectionAttemptCount++;
+    const attemptId = connectionAttemptCount;
+    console.log(`[PowerSync] initPowerSync() called (attempt #${attemptId})`);
+
+    // Register cleanup handlers on first init
+    registerPageCleanup();
+
+    // If already connected and database exists, return immediately
+    if (powerSyncDb && syncStatus.connected) {
+        console.log(`[PowerSync] (#${attemptId}) Already connected, reusing existing connection`);
+        return powerSyncDb;
+    }
+
+    // If database exists but not connected, try to reconnect
+    if (powerSyncDb && !isConnecting && !isDisconnecting) {
+        console.log(`[PowerSync] (#${attemptId}) Database exists but not connected, attempting reconnect...`);
+        return attemptReconnect(attemptId);
+    }
+
     // Return existing promise if already initializing
     if (powerSyncInitPromise) {
+        console.log(`[PowerSync] (#${attemptId}) Initialization already in progress, waiting...`);
         return powerSyncInitPromise;
     }
 
     powerSyncInitPromise = (async () => {
         try {
-            console.log('[PowerSync] Initializing...');
+            console.log(`[PowerSync] (#${attemptId}) Initializing new PowerSync instance...`);
 
             // Check if Supabase client exists (from config.js via window)
             if (typeof window.supabaseClient === 'undefined') {
                 throw new Error('Supabase client not initialized. Make sure config.js is loaded first.');
             }
 
-            console.log('[PowerSync] Creating database...');
+            // If there's an old database instance, try to clean it up first
+            if (powerSyncDb) {
+                console.log(`[PowerSync] (#${attemptId}) Cleaning up old database instance...`);
+                try {
+                    await powerSyncDb.disconnect();
+                    console.log(`[PowerSync] (#${attemptId}) Old instance disconnected`);
+                } catch (cleanupError) {
+                    console.warn(`[PowerSync] (#${attemptId}) Old instance cleanup warning:`, cleanupError.message);
+                }
+                powerSyncDb = null;
+            }
+
+            console.log(`[PowerSync] (#${attemptId}) Creating database...`);
 
             // Create PowerSync database
             powerSyncDb = new PowerSyncDatabase({
@@ -298,30 +367,53 @@ export async function initPowerSync() {
                 }
             });
 
-            console.log('[PowerSync] Database created, preparing to connect...');
+            console.log(`[PowerSync] (#${attemptId}) Database created, preparing to connect...`);
 
             // Create connector
             const connector = new SupabaseConnector(window.supabaseClient);
 
             // Mark that we're attempting to connect
             isConnecting = true;
-            console.log('[PowerSync] Connecting to PowerSync service...');
+            isDisconnecting = false;
+            console.log(`[PowerSync] (#${attemptId}) Connecting to PowerSync service...`);
 
-            // Connect to PowerSync service
-            try {
-                await powerSyncDb.connect(connector);
-                console.log('[PowerSync] connect() completed successfully');
-            } catch (connectError) {
-                console.error('[PowerSync] connect() failed:', connectError);
-                isConnecting = false;
-                // Don't rethrow - we can still use local-only mode
-                console.log('[PowerSync] Falling back to local-only mode after connect failure');
-                syncStatus.connected = false;
-                syncStatus.error = connectError.message;
-                return powerSyncDb; // Return db for local queries
+            // Connect to PowerSync service with retry logic
+            let connectSuccess = false;
+            let lastError = null;
+
+            for (let retry = 0; retry < 3; retry++) {
+                if (retry > 0) {
+                    console.log(`[PowerSync] (#${attemptId}) Retry ${retry}/2 after ${retry * 1000}ms delay...`);
+                    await new Promise(resolve => setTimeout(resolve, retry * 1000));
+                }
+
+                try {
+                    await powerSyncDb.connect(connector);
+                    console.log(`[PowerSync] (#${attemptId}) connect() completed successfully on attempt ${retry + 1}`);
+                    connectSuccess = true;
+                    break;
+                } catch (connectError) {
+                    lastError = connectError;
+                    console.error(`[PowerSync] (#${attemptId}) connect() failed on attempt ${retry + 1}:`, connectError.message);
+
+                    // Check if error indicates a stale connection issue
+                    const errorMsg = connectError.message?.toLowerCase() || '';
+                    if (errorMsg.includes('already') || errorMsg.includes('exists') || errorMsg.includes('locked')) {
+                        console.log(`[PowerSync] (#${attemptId}) Possible stale connection detected, will retry...`);
+                    }
+                }
             }
 
             isConnecting = false;
+
+            if (!connectSuccess) {
+                console.error(`[PowerSync] (#${attemptId}) All connect() attempts failed:`, lastError);
+                // Don't rethrow - we can still use local-only mode
+                console.log(`[PowerSync] (#${attemptId}) Falling back to local-only mode after connect failure`);
+                syncStatus.connected = false;
+                syncStatus.error = lastError?.message || 'Connection failed';
+                return powerSyncDb; // Return db for local queries
+            }
 
             // Update sync status
             syncStatus.connected = true;
@@ -335,11 +427,11 @@ export async function initPowerSync() {
                     if (status.connected !== undefined) {
                         syncStatus.connected = status.connected;
                     }
-                    console.log('[PowerSync] Status changed:', status);
+                    console.log(`[PowerSync] (#${attemptId}) Status changed:`, status);
                 }
             });
 
-            console.log('[PowerSync] Connected successfully');
+            console.log(`[PowerSync] (#${attemptId}) Connected successfully`);
 
             // Run connection test
             await testPowerSyncConnection();
@@ -347,7 +439,7 @@ export async function initPowerSync() {
             return powerSyncDb;
 
         } catch (error) {
-            console.error('[PowerSync] Initialization failed:', error);
+            console.error(`[PowerSync] (#${attemptId}) Initialization failed:`, error);
             isConnecting = false;
             syncStatus.connected = false;
             syncStatus.error = error.message;
@@ -356,6 +448,46 @@ export async function initPowerSync() {
     })();
 
     return powerSyncInitPromise;
+}
+
+// Helper to attempt reconnection on an existing database
+async function attemptReconnect(attemptId) {
+    console.log(`[PowerSync] (#${attemptId}) Attempting to reconnect existing database...`);
+
+    if (!window.supabaseClient) {
+        console.error(`[PowerSync] (#${attemptId}) Cannot reconnect - Supabase client not available`);
+        return powerSyncDb; // Return db for local-only mode
+    }
+
+    isConnecting = true;
+    const connector = new SupabaseConnector(window.supabaseClient);
+
+    try {
+        await powerSyncDb.connect(connector);
+        console.log(`[PowerSync] (#${attemptId}) Reconnection successful!`);
+        syncStatus.connected = true;
+        syncStatus.lastSyncTime = new Date().toISOString();
+        syncStatus.error = null;
+    } catch (reconnectError) {
+        console.error(`[PowerSync] (#${attemptId}) Reconnection failed:`, reconnectError.message);
+        syncStatus.connected = false;
+        syncStatus.error = reconnectError.message;
+
+        // If reconnect fails, try full reinit
+        console.log(`[PowerSync] (#${attemptId}) Reconnect failed, attempting full reinit...`);
+        powerSyncInitPromise = null; // Clear promise to allow fresh init
+        try {
+            await powerSyncDb.disconnect();
+        } catch (e) {
+            // Ignore
+        }
+        powerSyncDb = null;
+        return initPowerSync();
+    } finally {
+        isConnecting = false;
+    }
+
+    return powerSyncDb;
 }
 
 // ============ HELPER FUNCTIONS ============
@@ -653,6 +785,56 @@ export async function testPowerSyncConnection() {
     }
 }
 
+// ============ DISCONNECT ============
+/**
+ * Explicitly disconnect PowerSync and clean up resources
+ * Call this before page unload or when you want to reset the connection
+ */
+export async function disconnectPowerSync() {
+    console.log('[PowerSync] Explicit disconnect requested...');
+    isDisconnecting = true;
+
+    if (!powerSyncDb) {
+        console.log('[PowerSync] No database to disconnect');
+        return true;
+    }
+
+    try {
+        await powerSyncDb.disconnect();
+        console.log('[PowerSync] Disconnect successful');
+        syncStatus.connected = false;
+        syncStatus.error = null;
+        return true;
+    } catch (error) {
+        console.error('[PowerSync] Disconnect error:', error);
+        return false;
+    } finally {
+        isDisconnecting = false;
+    }
+}
+
+/**
+ * Force reset PowerSync - disconnects and clears all state
+ * Use this if PowerSync gets into a bad state
+ */
+export async function resetPowerSync() {
+    console.log('[PowerSync] Force reset requested...');
+
+    await disconnectPowerSync();
+
+    // Clear all state
+    powerSyncDb = null;
+    powerSyncInitPromise = null;
+    isConnecting = false;
+    isDisconnecting = false;
+    syncStatus.connected = false;
+    syncStatus.syncing = false;
+    syncStatus.error = null;
+
+    console.log('[PowerSync] State cleared, ready for fresh initialization');
+    return true;
+}
+
 // ============ EXPOSE TO WINDOW FOR COMPATIBILITY ============
 // This allows existing code that uses window.initPowerSync etc. to keep working
 window.PowerSyncClient = {
@@ -662,6 +844,10 @@ window.PowerSyncClient = {
     isReady: isPowerSyncReady,
     isAvailable: isPowerSyncAvailable,
     waitFor: waitForPowerSync,
+
+    // Connection management
+    disconnect: disconnectPowerSync,
+    reset: resetPowerSync,
 
     // Query helpers
     getAll: psGetAll,
@@ -680,5 +866,7 @@ window.initPowerSync = initPowerSync;
 window.getPowerSync = getPowerSync;
 window.getSyncStatus = getSyncStatus;
 window.isPowerSyncAvailable = isPowerSyncAvailable;
+window.disconnectPowerSync = disconnectPowerSync;
+window.resetPowerSync = resetPowerSync;
 
 console.log('[PowerSync] Module loaded. Call initPowerSync() to connect.');
