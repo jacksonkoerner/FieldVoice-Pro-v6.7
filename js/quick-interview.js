@@ -4725,6 +4725,14 @@
             // Check auth first
             if (!await requireAuth()) return;
 
+            // Wait for PowerSync to be ready (up to 5 seconds)
+            const psReady = await window.PowerSyncClient?.waitForReady?.(5000);
+            if (!psReady) {
+                console.warn('[quick-interview] PowerSync not ready, working in offline mode');
+            } else {
+                console.log('[quick-interview] PowerSync ready');
+            }
+
             // Helper: Load data with timeout to prevent UI from hanging
             async function loadWithTimeout(loader, name, defaultValue, timeoutMs = 5000) {
                 try {

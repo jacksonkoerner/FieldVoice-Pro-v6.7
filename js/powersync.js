@@ -1006,6 +1006,47 @@ export async function testPowerSyncConnection() {
     }
 }
 
+// ============ WAIT FOR READY ============
+/**
+ * Wait for PowerSync to be fully connected and ready for operations
+ * Use this at page init to ensure saves will work
+ * @param {number} timeoutMs - Maximum time to wait (default 5000ms)
+ * @returns {Promise<boolean>} True if connected, false if timeout reached
+ */
+export async function waitForPowerSyncReady(timeoutMs = 5000) {
+    console.log('[PowerSync] waitForReady called, timeout:', timeoutMs);
+
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+        // Already connected - return immediately
+        if (powerSyncDb && syncStatus.connected) {
+            console.log('[PowerSync] waitForReady: Already connected!');
+            return true;
+        }
+
+        // If init hasn't started and no db exists, start it
+        if (!powerSyncInitPromise && !powerSyncDb && !isConnecting) {
+            console.log('[PowerSync] waitForReady: Starting init...');
+            initPowerSync().catch(e => {
+                console.warn('[PowerSync] waitForReady: Init failed:', e.message);
+            });
+        }
+
+        // Wait a bit before checking again
+        await new Promise(r => setTimeout(r, 200));
+    }
+
+    // Timeout reached - check final state
+    if (powerSyncDb && syncStatus.connected) {
+        console.log('[PowerSync] waitForReady: Connected just in time!');
+        return true;
+    }
+
+    console.warn('[PowerSync] waitForReady: Timeout after', timeoutMs, 'ms, connected:', syncStatus.connected);
+    return false;
+}
+
 // ============ DISCONNECT ============
 /**
  * Explicitly disconnect PowerSync and clean up resources
@@ -1065,6 +1106,7 @@ window.PowerSyncClient = {
     isReady: isPowerSyncReady,
     isAvailable: isPowerSyncAvailable,
     waitFor: waitForPowerSync,
+    waitForReady: waitForPowerSyncReady,
 
     // Connection management
     disconnect: disconnectPowerSync,
@@ -1087,6 +1129,7 @@ window.initPowerSync = initPowerSync;
 window.getPowerSync = getPowerSync;
 window.getSyncStatus = getSyncStatus;
 window.isPowerSyncAvailable = isPowerSyncAvailable;
+window.waitForPowerSyncReady = waitForPowerSyncReady;
 window.disconnectPowerSync = disconnectPowerSync;
 window.resetPowerSync = resetPowerSync;
 

@@ -224,6 +224,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check auth first
     if (!await requireAuth()) return;
 
+    // Wait for PowerSync to be ready (up to 5 seconds)
+    const psReady = await window.PowerSyncClient?.waitForReady?.(5000);
+    if (!psReady) {
+        console.warn('[drafts] PowerSync not ready, working in offline mode');
+    } else {
+        console.log('[drafts] PowerSync ready');
+    }
+
     renderDrafts();
 
     // Initialize PWA features (service worker, offline banner, etc.)
