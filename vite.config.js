@@ -11,7 +11,8 @@ export default defineConfig({
       targets: [
         { src: 'sw.js', dest: '' },
         { src: 'manifest.json', dest: '' },
-        { src: 'icons/*', dest: 'icons' }
+        { src: 'icons/*', dest: 'icons' },
+        { src: 'public/@powersync/**/*', dest: '@powersync' }
       ]
     })
   ],

@@ -4,8 +4,10 @@
   "version": "6.7.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "copy-powersync": "npx powersync-web copy-assets --output public",
+    "prebuild": "npm run copy-powersync",
     "build": "vite build",
+    "dev": "npm run copy-powersync && vite",
     "preview": "vite preview"
   },
   "dependencies": {
