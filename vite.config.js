@@ -16,7 +16,7 @@ export default defineConfig({
       ]
     })
   ],
-  base: '/FieldVoice-Pro-v6.7/',
+  base: '/',  // Vercel hosts at root (was /FieldVoice-Pro-v6.7/ for GitHub Pages)
   build: {
     outDir: 'dist',
     rollupOptions: {
