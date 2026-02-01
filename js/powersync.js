@@ -562,15 +562,14 @@ export async function initPowerSync() {
 
             console.log(`[PowerSync] (#${attemptId}) Database factory created with worker path: ${basePath}@powersync/worker/WASQLiteDB.umd.js`);
 
-            // Create PowerSync database with explicit worker paths for both DB and sync
+            // Create PowerSync database
+            // NOTE: useWebWorker disabled because GitHub Pages lacks COOP/COEP headers
+            // needed for SharedArrayBuffer. This runs SQLite on main thread instead.
             powerSyncDb = new PowerSyncDatabase({
                 schema: powerSyncSchema,
                 database: dbFactory,
                 flags: {
-                    useWebWorker: true
-                },
-                sync: {
-                    worker: `${basePath}@powersync/worker/SharedSyncImplementation.umd.js`
+                    useWebWorker: false  // Disabled - GitHub Pages doesn't support SharedArrayBuffer
                 }
             });
 
