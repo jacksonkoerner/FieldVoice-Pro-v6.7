@@ -1,7 +1,7 @@
 // FieldVoice Pro - PowerSync Integration
 // Provides offline-first sync with Supabase via PowerSync
 
-import { PowerSyncDatabase, Schema, Table, column } from '@powersync/web';
+import { PowerSyncDatabase, WASQLiteOpenFactory, Schema, Table, column } from '@powersync/web';
 
 // ============ POWERSYNC CREDENTIALS ============
 // PowerSync uses Supabase Auth tokens for authentication
@@ -550,11 +550,24 @@ export async function initPowerSync() {
 
             console.log(`[PowerSync] (#${attemptId}) Creating database...`);
 
-            // Create PowerSync database
+            // Create database factory with explicit worker path
+            // The worker files are deployed to /@powersync/worker/ by the copy-assets script
+            const dbFactory = new WASQLiteOpenFactory({
+                dbFilename: 'fieldvoice.db',
+                worker: '/@powersync/worker/WASQLiteDB.umd.js'
+            });
+
+            console.log(`[PowerSync] (#${attemptId}) Database factory created with worker path: /@powersync/worker/WASQLiteDB.umd.js`);
+
+            // Create PowerSync database with explicit worker paths for both DB and sync
             powerSyncDb = new PowerSyncDatabase({
                 schema: powerSyncSchema,
-                database: {
-                    dbFilename: 'fieldvoice.db'
+                database: dbFactory,
+                flags: {
+                    useWebWorker: true
+                },
+                sync: {
+                    worker: '/@powersync/worker/SharedSyncImplementation.umd.js'
                 }
             });
 
