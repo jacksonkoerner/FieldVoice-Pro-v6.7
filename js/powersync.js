@@ -1,7 +1,7 @@
 // FieldVoice Pro - PowerSync Integration
 // Provides offline-first sync with Supabase via PowerSync
 
-import { PowerSyncDatabase, WASQLiteOpenFactory, Schema, Table, column } from '@powersync/web';
+import { PowerSyncDatabase, WASQLiteOpenFactory, WASQLiteVFS, Schema, Table, column } from '@powersync/web';
 
 // ============ POWERSYNC CREDENTIALS ============
 // PowerSync uses Supabase Auth tokens for authentication
@@ -556,10 +556,13 @@ export async function initPowerSync() {
             // Create database factory
             // NOTE: Workers disabled because GitHub Pages lacks COOP/COEP headers
             // needed for SharedArrayBuffer. SQLite runs on main thread instead.
+            // Using IDBBatchAtomicVFS which stores data in IndexedDB.
             const dbFactory = new WASQLiteOpenFactory({
                 dbFilename: 'fieldvoice.db',
+                vfs: WASQLiteVFS.IDBBatchAtomicVFS,
                 flags: {
-                    useWebWorker: false  // GitHub Pages doesn't support SharedArrayBuffer
+                    useWebWorker: false,    // GitHub Pages doesn't support SharedArrayBuffer
+                    enableMultiTabs: false  // Disable multi-tab for simpler init
                 }
             });
 
