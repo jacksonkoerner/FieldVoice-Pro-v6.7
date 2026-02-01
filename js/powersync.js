@@ -192,27 +192,44 @@ let syncStatus = {
 // ============ CONNECT WITH TIMEOUT ============
 // Wraps connect() with explicit timeout and detailed error catching
 async function connectWithTimeout(db, connector, timeoutMs = 10000) {
-    return new Promise(async (resolve, reject) => {
-        const timer = setTimeout(() => {
-            reject(new Error(`connect() timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-
-        try {
-            console.log('[PowerSync] Starting connect with', timeoutMs, 'ms timeout');
-
-            await db.connect(connector);
-            clearTimeout(timer);
-            console.log('[PowerSync] connect() succeeded');
-            resolve(true);
-        } catch (e) {
-            clearTimeout(timer);
-            console.error('[PowerSync] connect() failed with error:', e.message);
-            console.error('[PowerSync] Error stack:', e.stack);
-            console.error('[PowerSync] Error name:', e.name);
-            console.error('[PowerSync] Full error object:', e);
-            reject(e);
-        }
+    console.log('[PowerSync] connectWithTimeout: Starting with', timeoutMs, 'ms timeout');
+    console.log('[PowerSync] connectWithTimeout: Connector methods:', {
+        hasFetchCredentials: typeof connector.fetchCredentials === 'function',
+        hasUploadData: typeof connector.uploadData === 'function'
     });
+
+    // Wrap in a proper Promise to handle async/await correctly
+    const connectPromise = (async () => {
+        try {
+            console.log('[PowerSync] connectWithTimeout: Calling db.connect(connector)...');
+            const startTime = Date.now();
+
+            // The SDK should call connector.fetchCredentials() during this call
+            await db.connect(connector);
+
+            const elapsed = Date.now() - startTime;
+            console.log(`[PowerSync] connectWithTimeout: db.connect() resolved in ${elapsed}ms`);
+            return true;
+        } catch (e) {
+            console.error('[PowerSync] connectWithTimeout: db.connect() threw:', e.message);
+            console.error('[PowerSync] connectWithTimeout: Error details:', {
+                name: e.name,
+                message: e.message,
+                stack: e.stack
+            });
+            throw e;
+        }
+    })();
+
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+            console.error(`[PowerSync] connectWithTimeout: TIMEOUT after ${timeoutMs}ms`);
+            console.error('[PowerSync] connectWithTimeout: If fetchCredentials was never logged, the SDK is stuck before auth');
+            reject(new Error(`connect() timed out after ${timeoutMs}ms - SDK may be stuck during initialization`));
+        }, timeoutMs);
+    });
+
+    return Promise.race([connectPromise, timeoutPromise]);
 }
 
 // ============ PAGE LIFECYCLE CLEANUP ============
@@ -255,40 +272,46 @@ function registerPageCleanup() {
 class SupabaseConnector {
     constructor(supabaseClient) {
         this.supabaseClient = supabaseClient;
+        // Pre-bind methods to ensure 'this' context is preserved when SDK calls them
+        this.fetchCredentials = this.fetchCredentials.bind(this);
+        this.uploadData = this.uploadData.bind(this);
     }
 
     // Get credentials for PowerSync connection using Supabase Auth
     async fetchCredentials() {
-        console.log('[PowerSync] fetchCredentials called');
+        console.log('[PowerSync] >>> fetchCredentials() CALLED <<<');
 
         try {
             // Use window.supabaseClient since it's set globally in main.js
             const supabase = window.supabaseClient || this.supabaseClient;
             if (!supabase) {
+                console.error('[PowerSync] fetchCredentials: Supabase client not available');
                 throw new Error('Supabase client not available');
             }
 
+            console.log('[PowerSync] fetchCredentials: Getting session...');
             const { data: { session }, error } = await supabase.auth.getSession();
 
             if (error) {
-                console.error('[PowerSync] Auth session error:', error);
+                console.error('[PowerSync] fetchCredentials: Auth session error:', error);
                 throw error;
             }
 
             if (!session) {
-                console.warn('[PowerSync] No auth session found');
+                console.warn('[PowerSync] fetchCredentials: No auth session found');
                 throw new Error('Not authenticated');
             }
 
-            console.log('[PowerSync] Using auth token for user:', session.user.email);
-            console.log('[PowerSync] Token expires:', new Date(session.expires_at * 1000).toISOString());
+            console.log('[PowerSync] fetchCredentials: Using auth token for user:', session.user.email);
+            console.log('[PowerSync] fetchCredentials: Token expires:', new Date(session.expires_at * 1000).toISOString());
+            console.log('[PowerSync] fetchCredentials: Returning credentials with endpoint:', POWERSYNC_URL);
 
             return {
                 endpoint: POWERSYNC_URL,
                 token: session.access_token
             };
         } catch (e) {
-            console.error('[PowerSync] fetchCredentials failed:', e);
+            console.error('[PowerSync] fetchCredentials FAILED:', e);
             throw e;
         }
     }
@@ -494,13 +517,27 @@ export async function initPowerSync() {
             });
 
             // Create connector and log URL for WebSocket debugging
-            console.log(`[PowerSync] (#${attemptId}) Connector being created with URL:`, POWERSYNC_URL);
+            console.log(`[PowerSync] (#${attemptId}) Creating connector with URL:`, POWERSYNC_URL);
             const connector = new SupabaseConnector(window.supabaseClient);
+
+            // PRE-TEST: Verify fetchCredentials works before passing to SDK
+            console.log(`[PowerSync] (#${attemptId}) Pre-testing fetchCredentials()...`);
+            try {
+                const testCreds = await connector.fetchCredentials();
+                console.log(`[PowerSync] (#${attemptId}) Pre-test SUCCESS - credentials obtained:`, {
+                    endpoint: testCreds.endpoint,
+                    tokenLength: testCreds.token?.length || 0,
+                    tokenPreview: testCreds.token?.substring(0, 20) + '...'
+                });
+            } catch (preTestError) {
+                console.error(`[PowerSync] (#${attemptId}) Pre-test FAILED:`, preTestError);
+                throw new Error('Cannot connect: fetchCredentials pre-test failed - ' + preTestError.message);
+            }
 
             // Mark that we're attempting to connect
             isConnecting = true;
             isDisconnecting = false;
-            console.log(`[PowerSync] (#${attemptId}) Connecting to PowerSync service...`);
+            console.log(`[PowerSync] (#${attemptId}) Connecting to PowerSync service (connector verified)...`);
 
             // Connect to PowerSync service with retry logic
             let connectSuccess = false;
@@ -616,6 +653,21 @@ async function attemptReconnect(attemptId) {
     isConnecting = true;
     console.log(`[PowerSync] (#${attemptId}) Reconnect - Creating connector with URL:`, POWERSYNC_URL);
     const connector = new SupabaseConnector(window.supabaseClient);
+
+    // PRE-TEST: Verify fetchCredentials works before passing to SDK
+    console.log(`[PowerSync] (#${attemptId}) Reconnect - Pre-testing fetchCredentials()...`);
+    try {
+        const testCreds = await connector.fetchCredentials();
+        console.log(`[PowerSync] (#${attemptId}) Reconnect - Pre-test SUCCESS:`, {
+            endpoint: testCreds.endpoint,
+            tokenLength: testCreds.token?.length || 0
+        });
+    } catch (preTestError) {
+        console.error(`[PowerSync] (#${attemptId}) Reconnect - Pre-test FAILED:`, preTestError);
+        isConnecting = false;
+        syncStatus.error = 'fetchCredentials failed: ' + preTestError.message;
+        return powerSyncDb; // Return db for local-only mode
+    }
 
     try {
         console.log(`[PowerSync] (#${attemptId}) Reconnect - About to call connectWithTimeout()...`);
