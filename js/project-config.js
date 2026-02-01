@@ -256,8 +256,14 @@ async function saveProject() {
             created_at: currentProject.created_at
         };
 
-        await window.PowerSyncClient.save('projects', record);
-        console.log('[saveProject] Saved project to PowerSync:', currentProject.id);
+        const projectResult = await window.PowerSyncClient.save('projects', record);
+        if (!projectResult) {
+            console.error('[saveProject] PowerSync save failed - not connected');
+            showToast('Unable to sync project - saving locally only', 'warning');
+            // Continue anyway - data is in local PowerSync DB, will sync when connected
+        } else {
+            console.log('[saveProject] Saved project to PowerSync:', currentProject.id);
+        }
 
         // Save contractors to PowerSync
         console.log('[saveProject] currentProject.contractors:', currentProject.contractors);
@@ -277,9 +283,13 @@ async function saveProject() {
         const currentIds = new Set((currentProject.contractors || []).map(c => c.id));
 
         // Delete removed contractors
+        let syncWarningShown = !projectResult; // Track if we already showed a warning
         for (const existing of existingContractors) {
             if (!currentIds.has(existing.id)) {
-                await window.PowerSyncClient.delete('contractors', existing.id);
+                const deleteResult = await window.PowerSyncClient.delete('contractors', existing.id);
+                if (!deleteResult && !syncWarningShown) {
+                    console.warn('[saveProject] Contractor delete may not sync');
+                }
                 console.log('[saveProject] Deleted contractor:', existing.id);
             }
         }
@@ -300,7 +310,10 @@ async function saveProject() {
                 created_at: contractor.created_at || new Date().toISOString()
             };
             console.log('[saveProject] Saving contractor:', contractorRecord.id, contractorRecord.name);
-            await window.PowerSyncClient.save('contractors', contractorRecord);
+            const contractorResult = await window.PowerSyncClient.save('contractors', contractorRecord);
+            if (!contractorResult && !syncWarningShown) {
+                console.warn('[saveProject] Contractor save may not sync:', contractorRecord.id);
+            }
         }
         console.log('[saveProject] Saved', (currentProject.contractors || []).length, 'contractors to PowerSync');
 
@@ -1070,6 +1083,14 @@ function handleMissingFieldInput(e) {
 document.addEventListener('DOMContentLoaded', async () => {
     // Check auth first
     if (!await requireAuth()) return;
+
+    // Wait for PowerSync to be ready (up to 5 seconds)
+    const psReady = await window.PowerSyncClient?.waitForReady?.(5000);
+    if (!psReady) {
+        console.warn('[project-config] PowerSync not ready, working in offline mode');
+    } else {
+        console.log('[project-config] PowerSync ready');
+    }
 
     // Initialize IndexedDB for photo storage (projects now use PowerSync)
     try {

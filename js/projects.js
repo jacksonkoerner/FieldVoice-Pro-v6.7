@@ -230,6 +230,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check auth first
     if (!await requireAuth()) return;
 
+    // Wait for PowerSync to be ready (up to 5 seconds)
+    const psReady = await window.PowerSyncClient?.waitForReady?.(5000);
+    if (!psReady) {
+        console.warn('[projects] PowerSync not ready, working in offline mode');
+    } else {
+        console.log('[projects] PowerSync ready');
+    }
+
     // Get current active project
     activeProjectId = getStorageItem(STORAGE_KEYS.ACTIVE_PROJECT_ID);
 

@@ -527,6 +527,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check auth first
     if (!await requireAuth()) return;
 
+    // Wait for PowerSync to be ready (up to 5 seconds)
+    const psReady = await window.PowerSyncClient?.waitForReady?.(5000);
+    if (!psReady) {
+        console.warn('[settings] PowerSync not ready, working in offline mode');
+    } else {
+        console.log('[settings] PowerSync ready');
+    }
+
     // Get all form input fields
     const inputFields = [
         document.getElementById('inspectorName'),

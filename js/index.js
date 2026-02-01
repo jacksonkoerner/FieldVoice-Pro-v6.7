@@ -546,6 +546,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Check auth first
     if (!await requireAuth()) return;
 
+    // Wait for PowerSync to be ready (up to 5 seconds)
+    const psReady = await window.PowerSyncClient?.waitForReady?.(5000);
+    if (!psReady) {
+        console.warn('[index] PowerSync not ready, working in offline mode');
+    } else {
+        console.log('[index] PowerSync ready');
+    }
+
     if (shouldShowOnboarding()) {
         window.location.href = 'permissions.html';
         return;
