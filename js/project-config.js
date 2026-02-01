@@ -317,6 +317,92 @@ async function saveProject() {
         }
         console.log('[saveProject] Saved', (currentProject.contractors || []).length, 'contractors to PowerSync');
 
+        // ============ DUAL WRITE: Direct Supabase Fallback ============
+        // PowerSync may not sync to Supabase if connection failed (especially on mobile/PWA)
+        // So we also write directly to Supabase as a backup, similar to settings.js
+        try {
+            console.log('[saveProject] Attempting direct Supabase upsert as sync fallback...');
+
+            // Build project data for Supabase (using existing converter)
+            const supabaseProject = {
+                id: currentProject.id,
+                project_name: currentProject.name || '',
+                location: currentProject.location || '',
+                status: currentProject.status || 'active',
+                prime_contractor: currentProject.primeContractor || '',
+                engineer: currentProject.engineer || '',
+                logo: currentProject.logoUrl || currentProject.logoThumbnail || currentProject.logo || null,
+                cno_solicitation_no: currentProject.cnoSolicitationNo || 'N/A',
+                noab_project_no: currentProject.noabProjectNo || '',
+                contract_duration: currentProject.contractDuration || null,
+                notice_to_proceed: currentProject.noticeToProceed || null,
+                expected_completion: currentProject.expectedCompletion || null,
+                weather_days: currentProject.weatherDays || 0,
+                default_start_time: currentProject.defaultStartTime || '06:00',
+                default_end_time: currentProject.defaultEndTime || '16:00',
+                created_by: currentProject.created_by || userId || null,
+                created_at: currentProject.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            };
+
+            // Upsert project to Supabase
+            const { error: projectUpsertError } = await supabaseClient
+                .from('projects')
+                .upsert(supabaseProject, { onConflict: 'id' });
+
+            if (projectUpsertError) {
+                console.warn('[saveProject] Direct Supabase project upsert failed:', projectUpsertError);
+                // Don't throw - PowerSync save succeeded, this is just a backup
+            } else {
+                console.log('[saveProject] Direct Supabase project upsert succeeded');
+            }
+
+            // Also sync contractors directly to Supabase
+            if (currentProject.contractors && currentProject.contractors.length > 0) {
+                const supabaseContractors = currentProject.contractors.map(c => ({
+                    id: c.id,
+                    project_id: currentProject.id,
+                    name: c.name || '',
+                    company: c.company || '',
+                    abbreviation: c.abbreviation || '',
+                    type: c.type || 'sub',
+                    trades: c.trades || '',
+                    status: c.status || 'active',
+                    added_date: c.addedDate || null,
+                    removed_date: c.removedDate || null,
+                    created_at: c.created_at || new Date().toISOString()
+                }));
+
+                const { error: contractorUpsertError } = await supabaseClient
+                    .from('contractors')
+                    .upsert(supabaseContractors, { onConflict: 'id' });
+
+                if (contractorUpsertError) {
+                    console.warn('[saveProject] Direct Supabase contractors upsert failed:', contractorUpsertError);
+                } else {
+                    console.log('[saveProject] Direct Supabase contractors upsert succeeded:', supabaseContractors.length);
+                }
+            }
+
+            // Handle contractor deletions - sync to Supabase
+            for (const existing of existingContractors) {
+                if (!currentIds.has(existing.id)) {
+                    const { error: deleteError } = await supabaseClient
+                        .from('contractors')
+                        .delete()
+                        .eq('id', existing.id);
+                    if (deleteError) {
+                        console.warn('[saveProject] Direct Supabase contractor delete failed:', deleteError);
+                    }
+                }
+            }
+
+        } catch (supabaseErr) {
+            // This is just a backup sync - don't fail the save
+            console.warn('[saveProject] Direct Supabase fallback failed (will sync via PowerSync when connected):', supabaseErr.message);
+        }
+        // ============ END DUAL WRITE ============
+
         clearDirty();
         showToast('Project saved successfully');
     } catch (error) {
@@ -337,6 +423,24 @@ function deleteProject(projectId) {
         try {
             await window.PowerSyncClient.delete('projects', projectId);
             console.log('[deleteProject] Deleted from PowerSync:', projectId);
+
+            // ============ DUAL WRITE: Direct Supabase Delete ============
+            // Also delete directly from Supabase as a fallback (for mobile/PWA)
+            try {
+                const { error } = await supabaseClient
+                    .from('projects')
+                    .delete()
+                    .eq('id', projectId);
+                if (error) {
+                    console.warn('[deleteProject] Direct Supabase delete failed:', error);
+                } else {
+                    console.log('[deleteProject] Direct Supabase delete succeeded');
+                }
+            } catch (supabaseErr) {
+                console.warn('[deleteProject] Direct Supabase fallback failed:', supabaseErr.message);
+            }
+            // ============ END DUAL WRITE ============
+
             showToast('Project deleted');
         } catch (error) {
             console.error('[deleteProject] PowerSync delete failed:', error);
