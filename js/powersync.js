@@ -318,13 +318,33 @@ class SupabaseConnector {
 
     // Upload local changes to Supabase
     async uploadData(database) {
+        console.log('[PowerSync] uploadData() called');
+
         const transaction = await database.getNextCrudTransaction();
-        if (!transaction) return;
+
+        if (!transaction) {
+            console.log('[PowerSync] uploadData: No pending transactions (write queue empty)');
+            return;
+        }
+
+        console.log('[PowerSync] uploadData: Processing transaction with', transaction.crud?.length || 0, 'operations');
+
+        // Use window.supabaseClient for consistency (same as fetchCredentials)
+        const supabase = window.supabaseClient || this.supabaseClient;
+        if (!supabase) {
+            console.error('[PowerSync] uploadData: Supabase client not available!');
+            throw new Error('Supabase client not available for upload');
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
 
         try {
             for (const op of transaction.crud) {
                 const table = op.table;
                 let record = { ...op.opData, id: op.id };
+
+                console.log(`[PowerSync] uploadData: Processing ${op.op} on ${table}, id: ${op.id}`);
 
                 // Sanitize empty strings to null (Supabase rejects "" for integer/numeric columns)
                 Object.keys(record).forEach(key => {
@@ -342,38 +362,70 @@ class SupabaseConnector {
                 switch (op.op) {
                     case 'PUT':
                         // Upsert to Supabase
-                        const { error: putError } = await this.supabaseClient
+                        console.log(`[PowerSync] uploadData: Upserting to ${table}:`, JSON.stringify(record).substring(0, 200));
+                        const { error: putError } = await supabase
                             .from(table)
                             .upsert(record, { onConflict: 'id' });
-                        if (putError) throw putError;
+                        if (putError) {
+                            console.error(`[PowerSync] uploadData: PUT error on ${table}:`, putError);
+                            errorCount++;
+                            throw putError;
+                        }
+                        console.log(`[PowerSync] uploadData: PUT success on ${table}, id: ${op.id}`);
+                        successCount++;
                         break;
 
                     case 'PATCH':
                         // Update in Supabase - use filtered data (without id)
                         const updateData = { ...record };
                         delete updateData.id;
-                        const { error: patchError } = await this.supabaseClient
+                        console.log(`[PowerSync] uploadData: Updating ${table}:`, JSON.stringify(updateData).substring(0, 200));
+                        const { error: patchError } = await supabase
                             .from(table)
                             .update(updateData)
                             .eq('id', op.id);
-                        if (patchError) throw patchError;
+                        if (patchError) {
+                            console.error(`[PowerSync] uploadData: PATCH error on ${table}:`, patchError);
+                            errorCount++;
+                            throw patchError;
+                        }
+                        console.log(`[PowerSync] uploadData: PATCH success on ${table}, id: ${op.id}`);
+                        successCount++;
                         break;
 
                     case 'DELETE':
                         // Delete from Supabase
-                        const { error: deleteError } = await this.supabaseClient
+                        console.log(`[PowerSync] uploadData: Deleting from ${table}, id: ${op.id}`);
+                        const { error: deleteError } = await supabase
                             .from(table)
                             .delete()
                             .eq('id', op.id);
-                        if (deleteError) throw deleteError;
+                        if (deleteError) {
+                            console.error(`[PowerSync] uploadData: DELETE error on ${table}:`, deleteError);
+                            errorCount++;
+                            throw deleteError;
+                        }
+                        console.log(`[PowerSync] uploadData: DELETE success on ${table}, id: ${op.id}`);
+                        successCount++;
                         break;
+
+                    default:
+                        console.warn(`[PowerSync] uploadData: Unknown operation type: ${op.op}`);
                 }
             }
 
             await transaction.complete();
-            console.log('[PowerSync] Upload transaction completed');
+            console.log(`[PowerSync] uploadData: Transaction completed successfully (${successCount} operations)`);
         } catch (error) {
-            console.error('[PowerSync] Upload failed:', error);
+            console.error('[PowerSync] uploadData: Transaction failed:', error);
+            console.error('[PowerSync] uploadData: Error details:', {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint,
+                successCount,
+                errorCount
+            });
             throw error;
         }
     }
